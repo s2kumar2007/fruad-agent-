@@ -1,8 +1,25 @@
 import os
+import requests
 import pyTigerGraph as tg
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def get_tg_token(host, secret, graph=None):
+    payload = {"secret": secret}
+    if graph:
+        payload["graph"] = graph
+
+    resp = requests.post(
+        f"{host}/gsql/v1/tokens",
+        json=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("error"):
+        raise RuntimeError(f"Token request failed: {data.get('message')}")
+    return data["token"]
 
 class TigerGraphMCPStore:
     def __init__(self, needed_customers=None):
@@ -12,17 +29,13 @@ class TigerGraphMCPStore:
 
         if self.host and self.secret:
             try:
-                # Use a pre-generated DB secret from the Savanna console.
-                # Do NOT call createSecret() — we already have one.
-                # NOTE: getToken() already sets self.apiToken internally — do NOT assign its
-                # return value to conn.apiToken (the return is a tuple, not a bare string).
+                token = get_tg_token(self.host, self.secret, self.graph)
                 self.conn = tg.TigerGraphConnection(
                     host=self.host,
                     graphname=self.graph,
+                    apiToken=token,
                 )
-                _tok_result = self.conn.getToken(self.secret)
-                print(f"[tg_store] getToken type={type(_tok_result)}  raw={_tok_result}")
-                print(f"[tg_store] conn.apiToken set to: {self.conn.apiToken!r}")
+                self.conn.apiToken = token
             except Exception as e:
                 print(f"TigerGraph connection error: {e}")
                 self.conn = None

@@ -1,5 +1,5 @@
 """
-run_live.py — End-to-end live pipeline runner.
+run_live.py - End-to-end live pipeline runner.
 
 Steps performed:
   1. Load credentials from .env
@@ -7,9 +7,9 @@ Steps performed:
   3. Apply gsql/02_loading.gsql (loading job) + trigger it over data/*.csv
   4. Apply gsql/03_queries.gsql (installed queries)
   5. Verify connection with a vertex count
-  6. Run agent.investigate   → writes cases/*.json
-  7. Run agent.validate_cases → prints pass/fail
-  8. Run agent.write_back    → pushes results to live graph, prints vertex/edge counts
+  6. Run agent.investigate   -> writes cases/*.json
+  7. Run agent.validate_cases -> prints pass/fail
+  8. Run agent.write_back    -> pushes results to live graph, prints vertex/edge counts
   9. Print summary report
 
 Usage:
@@ -17,7 +17,7 @@ Usage:
 
 Prerequisites:
     - .env file exists with TG_HOST, TG_SECRET, TG_GRAPH, XAI_API_KEY
-      TG_SECRET is generated from the Savanna console → Database Secrets page.
+      TG_SECRET is generated from the Savanna console -> Database Secrets page.
     - pip install pyTigerGraph python-dotenv requests
 """
 
@@ -37,6 +37,16 @@ TG_GRAPH  = os.environ.get("TG_GRAPH", "FraudGraph")
 XAI_KEY   = os.environ.get("XAI_API_KEY", "")
 
 ERRORS = []
+REQUIRED_VERTEX_TYPES = {
+    "Customer",
+    "Card",
+    "Transaction",
+    "DeviceProfile",
+    "EmailDomain",
+    "BillingRegion",
+    "ClosedCase",
+    "AgentCase",
+}
 
 
 def banner(msg):
@@ -46,78 +56,166 @@ def banner(msg):
 
 
 # ---------------------------------------------------------------------------
-# Step 1 – Validate credentials present
+# Step 1 - Validate credentials present
 # ---------------------------------------------------------------------------
-banner("Step 1 – Checking credentials")
+banner("Step 1 - Checking credentials")
 missing = [v for v in ("TG_HOST", "TG_SECRET", "TG_GRAPH", "XAI_API_KEY")
            if not os.environ.get(v)]
 if missing:
     print(f"[ERROR] Missing env vars: {', '.join(missing)}")
-    print("  → Copy .env.example to .env and fill in all values, then re-run.")
-    print("  → TG_SECRET comes from Savanna console → your graph → Database Secrets.")
+    print("  -> Copy .env.example to .env and fill in all values, then re-run.")
+    print("  -> TG_SECRET comes from Savanna console -> your graph -> Database Secrets.")
     sys.exit(1)
 print("  All required env vars present.")
 
 
 # ---------------------------------------------------------------------------
-# Step 2-4 – Apply schema, loading job, queries via pyTigerGraph GSQL
+# Step 2-4 - Apply schema, loading job, queries via pyTigerGraph GSQL
 # ---------------------------------------------------------------------------
+import requests
 import pyTigerGraph as tg
 
-banner("Step 2-4 – Connecting to TigerGraph and applying GSQL files")
+def get_tg_token(host, secret, graph=None):
+    payload = {"secret": secret}
+    if graph:
+        payload["graph"] = graph
+
+    resp = requests.post(
+        f"{host}/gsql/v1/tokens",
+        json=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("error"):
+        raise RuntimeError(f"Token request failed: {data.get('message')}")
+    return data["token"]
+
+def apply_gsql_file(conn, gsql_file):
+    gsql_text = Path(gsql_file).read_text()
+    try:
+        return conn.gsql(gsql_text)
+    except Exception as e:
+        if gsql_file == "gsql/01_schema.gsql" and "graph name conflicts" in str(e):
+            without_create_graph = "\n".join(
+                line for line in gsql_text.splitlines()
+                if not line.strip().upper().startswith("CREATE GRAPH ")
+            )
+            return conn.gsql(without_create_graph)
+        raise
+
+def run_optional_gsql(conn, gsql_text, description):
+    try:
+        result = conn.gsql(gsql_text)
+        print(result)
+    except Exception as e:
+        print(f"  [OK] Could not {description}; continuing because it may not exist yet. ({e})")
+
+def graph_has_required_schema(host, secret, graph):
+    token = get_tg_token(host, secret, graph)
+    scoped_conn = tg.TigerGraphConnection(host=host, graphname=graph, apiToken=token)
+    scoped_conn.apiToken = token
+    return REQUIRED_VERTEX_TYPES.issubset(set(scoped_conn.getVertexTypes()))
+
+banner("Step 2-4 - Connecting to TigerGraph and applying GSQL files")
 
 try:
-    # Use pre-generated DB secret — do NOT call createSecret() here.
-    # NOTE: getToken() already sets conn.apiToken internally to the bare token string.
-    # Assigning its return value would overwrite that with a tuple — don't do it.
-    conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH)
-    _tok_result = conn.getToken(TG_SECRET)
-    print(f"  [DEBUG] getToken type={type(_tok_result)}  raw={_tok_result}")
-    print(f"  [DEBUG] conn.apiToken={conn.apiToken!r}")
-    print(f"  Connected to {TG_HOST}  graph={TG_GRAPH}")
+    global_token = get_tg_token(TG_HOST, TG_SECRET)
+    conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH, apiToken=global_token)
+    conn.apiToken = global_token
+    print(f"  Connected to {TG_HOST}  graph={TG_GRAPH}  token_scope=global")
 except Exception as e:
     print(f"  [AUTH ERROR] {e}")
     ERRORS.append(f"Auth: {e}")
     sys.exit(1)
 
 for step_num, gsql_file in [(2, "gsql/01_schema.gsql"),
-                             (3, "gsql/02_loading.gsql"),
-                             (4, "gsql/03_queries.gsql")]:
-    banner(f"Step {step_num} – Applying {gsql_file}")
+                             (3, "gsql/02_loading.gsql")]:
+    banner(f"Step {step_num} - Applying {gsql_file}")
     try:
-        gsql_text = Path(gsql_file).read_text()
-        result = conn.gsql(gsql_text)
-        print(result)
+        if step_num == 2 and graph_has_required_schema(TG_HOST, TG_SECRET, TG_GRAPH):
+            print("  Required FraudGraph vertex types are already present; schema is applied.")
+        else:
+            if step_num == 3:
+                run_optional_gsql(conn, f"USE GRAPH {TG_GRAPH}\nDROP JOB load_fraud_graph", "drop existing loading job")
+            result = apply_gsql_file(conn, gsql_file)
+            print(result)
+            if step_num == 2 and "Please 'use global' first" in str(result):
+                if graph_has_required_schema(TG_HOST, TG_SECRET, TG_GRAPH):
+                    print("  Required FraudGraph vertex types are already present; treating schema as applied.")
+                else:
+                    raise RuntimeError("Schema DDL did not apply and required vertex types are missing.")
     except Exception as e:
         msg = f"[ERROR applying {gsql_file}] {e}"
         print(f"  {msg}")
         ERRORS.append(msg)
+        if step_num == 2:
+            print("  Step 2 failed; stopping before loading, queries, and live graph operations.")
+            sys.exit(1)
+
+try:
+    graph_token = get_tg_token(TG_HOST, TG_SECRET, TG_GRAPH)
+    conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH, apiToken=graph_token)
+    conn.apiToken = graph_token
+    print(f"  Switched to graph-scoped token for {TG_GRAPH}.")
+except Exception as e:
+    print(f"  [AUTH ERROR] {e}")
+    ERRORS.append(f"Graph auth: {e}")
+    sys.exit(1)
+
+banner("Step 4 - Applying gsql/03_queries.gsql")
+try:
+    run_optional_gsql(
+        conn,
+        "USE GRAPH {graph}\nDROP QUERY card_window, device_neighbors, region_cluster, card_history, similar_closed_cases, write_agent_case".format(graph=TG_GRAPH),
+        "drop existing queries",
+    )
+    result = apply_gsql_file(conn, "gsql/03_queries.gsql")
+    print(result)
+except Exception as e:
+    msg = f"[ERROR applying gsql/03_queries.gsql] {e}"
+    print(f"  {msg}")
+    ERRORS.append(msg)
 
 
 # ---------------------------------------------------------------------------
-# Step 3b – Trigger loading job over data/*.csv
+# Step 3b - Trigger loading job over data/*.csv
 # ---------------------------------------------------------------------------
-banner("Step 3b – Triggering loading job")
+banner("Step 3a - Building loader CSVs")
+try:
+    import agent.build_graph_csvs as csv_builder
+    csv_builder.run()
+except Exception as e:
+    msg = f"[ERROR building loader CSVs] {e}"
+    print(f"  {msg}")
+    ERRORS.append(msg)
+
+banner("Step 3b - Triggering loading job")
 DATA_FILES = {
-    "customers"               : "data/customers.csv",
-    "cards"                   : "data/cards.csv",
-    "devices"                 : "data/devices.csv",
-    "regions"                 : "data/regions.csv",
-    "emails"                  : "data/emails.csv",
-    "closed_cases"            : "data/closed_cases.csv",
-    "edges_from_device"       : "data/edges_from_device.csv",
-    "edges_closed_involves"   : "data/edges_closed_involves.csv",
-    "edges_closed_on_card"    : "data/edges_closed_on_card.csv",
-    "edges_closed_connected"  : "data/edges_closed_connected.csv",
+    "f_customers"    : "data/customers.csv",
+    "f_cards"        : "data/cards.csv",
+    "f_txns"         : "data/transactions.csv",
+    "f_devices"      : "data/devices.csv",
+    "f_regions"      : "data/regions.csv",
+    "f_emails"       : "data/emails.csv",
+    "f_closed"       : "data/closed_cases.csv",
+    "e_made"         : "data/edges_made.csv",
+    "e_device"       : "data/edges_from_device.csv",
+    "e_billed"       : "data/edges_billed_in.csv",
+    "e_email"        : "data/edges_purchaser_email.csv",
+    "e_next"         : "data/edges_next.csv",
+    "e_closed_inv"   : "data/edges_closed_involves.csv",
+    "e_closed_card"  : "data/edges_closed_on_card.csv",
+    "e_closed_conn"  : "data/edges_closed_connected.csv",
 }
 try:
     for label, fpath in DATA_FILES.items():
         if not Path(fpath).exists():
             print(f"  [SKIP] {fpath} not found locally")
             continue
-        print(f"  Uploading {fpath} …")
-        result = conn.uploadFile(fpath, fileTag=label, jobName="load_fraud_graph")
-        print(f"    → {result}")
+        print(f"  Uploading {fpath} ...")
+        result = conn.runLoadingJobWithFile(fpath, fileTag=label, jobName="load_fraud_graph")
+        print(f"    -> {result}")
 except Exception as e:
     msg = f"[ERROR during loading job] {e}"
     print(f"  {msg}")
@@ -125,15 +223,15 @@ except Exception as e:
 
 
 # ---------------------------------------------------------------------------
-# Step 5 – Verify with vertex counts
+# Step 5 - Verify with vertex counts
 # ---------------------------------------------------------------------------
-banner("Step 5 – Verifying connection (vertex counts)")
+banner("Step 5 - Verifying connection (vertex counts)")
 try:
     counts = conn.getVertexCount("*")
     for vtype, cnt in counts.items():
         print(f"  {vtype:30s}  {cnt:>8,}")
     if all(v == 0 for v in counts.values()):
-        print("  [WARN] All vertex counts are zero — loading job may not have run yet.")
+        print("  [WARN] All vertex counts are zero - loading job may not have run yet.")
 except Exception as e:
     msg = f"[ERROR getting vertex counts] {e}"
     print(f"  {msg}")
@@ -141,9 +239,9 @@ except Exception as e:
 
 
 # ---------------------------------------------------------------------------
-# Step 6 – Re-run investigate.py
+# Step 6 - Re-run investigate.py
 # ---------------------------------------------------------------------------
-banner("Step 6 – Running agent.investigate (live store)")
+banner("Step 6 - Running agent.investigate (live store)")
 import importlib, agent.investigate as inv
 importlib.reload(inv)
 
@@ -163,9 +261,9 @@ except Exception as e:
 
 
 # ---------------------------------------------------------------------------
-# Step 7 – Diff new cases vs stub-generated cases
+# Step 7 - Diff new cases vs stub-generated cases
 # ---------------------------------------------------------------------------
-banner("Step 7 – Diffing live vs stub cases")
+banner("Step 7 - Diffing live vs stub cases")
 CHANGED = []
 for p in sorted(glob.glob("cases/*.json")):
     with open(p) as f:
@@ -179,11 +277,11 @@ for p in sorted(glob.glob("cases/*.json")):
     diffs = []
     for field in ("verdict", "pattern", "fraud_probability"):
         if lc.get(field) != sc.get(field):
-            diffs.append(f"{field}: stub={sc.get(field)!r} → live={lc.get(field)!r}")
+            diffs.append(f"{field}: stub={sc.get(field)!r} -> live={lc.get(field)!r}")
     if set(a["action"] for a in lc.get("evidence", [])) != set(a.get("action","") for a in sc.get("evidence", [])):
         diffs.append("evidence trail changed")
     if diffs:
-        print(f"  {cid}: CHANGED → " + "; ".join(diffs))
+        print(f"  {cid}: CHANGED -> " + "; ".join(diffs))
         CHANGED.append({"case_id": cid, "diffs": diffs})
     else:
         print(f"  {cid}: unchanged")
@@ -195,9 +293,9 @@ else:
 
 
 # ---------------------------------------------------------------------------
-# Step 8 – Write-back all 20 cases
+# Step 8 - Write-back all 20 cases
 # ---------------------------------------------------------------------------
-banner("Step 8 – Writing all cases back to live graph (agent.write_back)")
+banner("Step 8 - Writing all cases back to live graph (agent.write_back)")
 import agent.write_back as wb
 written = 0
 write_errors = []
@@ -212,7 +310,7 @@ try:
         try:
             wb.write_case_with_card(conn, cid, answer, card_id)
             written += 1
-            print(f"  {cid} → written  (graph_case_id={answer['case']['graph_case_id']})")
+            print(f"  {cid} -> written  (graph_case_id={answer['case']['graph_case_id']})")
         except Exception as e:
             msg = f"{cid}: {e}"
             write_errors.append(msg)
@@ -234,9 +332,9 @@ except Exception as e:
 
 
 # ---------------------------------------------------------------------------
-# Step 9 – Validate
+# Step 9 - Validate
 # ---------------------------------------------------------------------------
-banner("Step 9 – Running validate_cases.py")
+banner("Step 9 - Running validate_cases.py")
 import subprocess, sys as _sys
 result = subprocess.run(
     [_sys.executable, "agent/validate_cases.py"],
@@ -252,12 +350,12 @@ if result.returncode != 0:
 # Final report
 # ---------------------------------------------------------------------------
 banner("FINAL REPORT")
-print(f"  Cases changed (stub → live): {len(CHANGED)}")
+print(f"  Cases changed (stub -> live): {len(CHANGED)}")
 for c in CHANGED:
     print(f"    {c['case_id']}: {'; '.join(c['diffs'])}")
 print(f"\n  Cases written to graph: {written}/20")
 print(f"\n  Errors encountered ({len(ERRORS)}):")
 for e in ERRORS:
-    print(f"    ✗ {e}")
+    print(f"    x {e}")
 if not ERRORS:
-    print("    None — clean run!")
+    print("    None - clean run!")

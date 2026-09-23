@@ -9,7 +9,7 @@ import csv
 from pathlib import Path
 from agent.data_store import LocalGraphStore, device_key
 
-OUT = Path("/home/claude/fraud-agent/data")
+OUT = Path(__file__).resolve().parents[1] / "data"
 OUT.mkdir(exist_ok=True, parents=True)
 
 

@@ -1,9 +1,7 @@
 // ============================================================
 // TigerGraph Schema — HHGoa Agentic Fraud Investigation
 // ============================================================
-CREATE GRAPH FraudGraph()
-
-USE GRAPH FraudGraph
+USE GLOBAL
 
 CREATE VERTEX Customer (
   PRIMARY_ID customer_id STRING
@@ -84,3 +82,7 @@ CREATE UNDIRECTED EDGE AGENT_INVOLVES (FROM AgentCase, TO Transaction)
 CREATE UNDIRECTED EDGE AGENT_ON_CARD (FROM AgentCase, TO Card)
 CREATE UNDIRECTED EDGE AGENT_CONNECTED_TO (FROM AgentCase, TO Card)
 CREATE UNDIRECTED EDGE SIMILAR_TO (FROM AgentCase, TO ClosedCase)  // case-similarity link (memory retrieval)
+
+CREATE GRAPH FraudGraph(Customer, Card, Transaction, DeviceProfile, EmailDomain, BillingRegion, ClosedCase, AgentCase,
+  OWNS, MADE, FROM_DEVICE, PURCHASER_EMAIL, BILLED_IN, NEXT, INVOLVES, ON_CARD, CONNECTED_TO,
+  AGENT_INVOLVES, AGENT_ON_CARD, AGENT_CONNECTED_TO, SIMILAR_TO)

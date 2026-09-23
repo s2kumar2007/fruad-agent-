@@ -2,43 +2,54 @@ USE GRAPH FraudGraph
 
 // 1. All transactions on a card within N hours of a flagged transaction (card testing / burst detection)
 CREATE QUERY card_window(STRING p_card_id, STRING p_txn_id, INT hours) FOR GRAPH FraudGraph {
-  Txn = {Transaction.*};
-  Anchor = SELECT t FROM Txn:t WHERE t.txn_id == p_txn_id;
-  DATETIME anchor_ts = Anchor.ts;
-  Start = SELECT c FROM Card:c WHERE c.card_id == p_card_id;
-  Window = SELECT t FROM Start:c -(MADE)-> Transaction:t
-           WHERE datetime_diff(t.ts, anchor_ts) >= -hours*3600
-             AND datetime_diff(t.ts, anchor_ts) <= hours*3600
+  MaxAccum<INT> @@anchor_dt;
+  VERTEX anchor_txn;
+  VERTEX start_card;
+  anchor_txn = to_vertex(p_txn_id, "Transaction");
+  start_card = to_vertex(p_card_id, "Card");
+  Anchor = {anchor_txn};
+  Anchor = SELECT a FROM Anchor:a ACCUM @@anchor_dt += a.dt_seconds;
+  Start = {start_card};
+  Window = SELECT t FROM Start:c -(MADE>)- Transaction:t
+           WHERE t.dt_seconds - @@anchor_dt >= -hours*3600
+             AND t.dt_seconds - @@anchor_dt <= hours*3600
            ORDER BY t.ts ASC;
   PRINT Window;
 }
 
 // 2. Other cards/customers sharing a device profile with the flagged transaction
 CREATE QUERY device_neighbors(STRING p_txn_id) FOR GRAPH FraudGraph {
-  Anchor = SELECT t FROM Transaction:t WHERE t.txn_id == p_txn_id;
-  Dev = SELECT d FROM Anchor:t -(FROM_DEVICE)-> DeviceProfile:d;
-  OtherTxns = SELECT t2 FROM Dev:d -(reverse_FROM_DEVICE)-> Transaction:t2
-              WHERE t2.txn_id != p_txn_id;
-  OtherCards = SELECT c FROM OtherTxns:t2 -(reverse_MADE)-> Card:c;
+  VERTEX anchor_txn;
+  anchor_txn = to_vertex(p_txn_id, "Transaction");
+  Anchor = {anchor_txn};
+  Dev = SELECT d FROM Anchor:t -(FROM_DEVICE>)- DeviceProfile:d;
+  OtherTxns = SELECT t2 FROM Transaction:t2 -(FROM_DEVICE>)- Dev:d
+              WHERE t2 != anchor_txn;
+  OtherCards = SELECT c FROM Card:c -(MADE>)- OtherTxns:t2;
   PRINT Dev, OtherTxns, OtherCards;
 }
 
 // 3. Other cards/customers sharing a billing region cluster in a time window
 CREATE QUERY region_cluster(STRING p_txn_id, INT window_hours) FOR GRAPH FraudGraph {
-  Anchor = SELECT t FROM Transaction:t WHERE t.txn_id == p_txn_id;
-  DATETIME anchor_ts = Anchor.ts;
-  Region = SELECT r FROM Anchor:t -(BILLED_IN)-> BillingRegion:r;
-  OtherTxns = SELECT t2 FROM Region:r -(reverse_BILLED_IN)-> Transaction:t2
-              WHERE t2.txn_id != p_txn_id
-                AND abs(datetime_diff(t2.ts, anchor_ts)) <= window_hours*3600;
-  OtherCards = SELECT c FROM OtherTxns:t2 -(reverse_MADE)-> Card:c;
+  MaxAccum<INT> @@anchor_dt;
+  VERTEX anchor_txn;
+  anchor_txn = to_vertex(p_txn_id, "Transaction");
+  Anchor = {anchor_txn};
+  Anchor = SELECT a FROM Anchor:a ACCUM @@anchor_dt += a.dt_seconds;
+  Region = SELECT r FROM Anchor:t -(BILLED_IN>)- BillingRegion:r;
+  OtherTxns = SELECT t2 FROM Transaction:t2 -(BILLED_IN>)- Region:r
+              WHERE t2 != anchor_txn
+                AND abs(t2.dt_seconds - @@anchor_dt) <= window_hours*3600;
+  OtherCards = SELECT c FROM Card:c -(MADE>)- OtherTxns:t2;
   PRINT Region, OtherTxns, OtherCards;
 }
 
 // 4. Full transaction + case history for a card (cardholder's normal baseline)
 CREATE QUERY card_history(STRING p_card_id) FOR GRAPH FraudGraph {
-  Start = SELECT c FROM Card:c WHERE c.card_id == p_card_id;
-  AllTxns = SELECT t FROM Start:c -(MADE)-> Transaction:t ORDER BY t.ts ASC;
+  VERTEX start_card;
+  start_card = to_vertex(p_card_id, "Card");
+  Start = {start_card};
+  AllTxns = SELECT t FROM Start:c -(MADE>)- Transaction:t ORDER BY t.ts ASC;
   PastCases = SELECT cc FROM Start:c -(ON_CARD)- ClosedCase:cc;
   PRINT AllTxns, PastCases;
 }
@@ -46,12 +57,18 @@ CREATE QUERY card_history(STRING p_card_id) FOR GRAPH FraudGraph {
 // 5. Closed-case similarity: cases sharing pattern signature (device/region/product/amount band)
 //    on customers/cards other than the one under investigation — retrieved as memory
 CREATE QUERY similar_closed_cases(STRING p_pattern_hint, STRING p_device_key, STRING p_region_code) FOR GRAPH FraudGraph {
-  Dev = {DeviceProfile.*};
-  Reg = {BillingRegion.*};
-  ViaDevice = SELECT cc FROM Dev:d WHERE d.device_key == p_device_key
-              -(reverse_FROM_DEVICE)-> Transaction -(reverse_INVOLVES)- ClosedCase:cc;
-  ViaRegion = SELECT cc FROM Reg:r WHERE r.region_code == p_region_code
-              -(reverse_BILLED_IN)-> Transaction -(reverse_INVOLVES)- ClosedCase:cc;
+  VERTEX device;
+  VERTEX region;
+  device = to_vertex(p_device_key, "DeviceProfile");
+  region = to_vertex(p_region_code, "BillingRegion");
+  Dev = {device};
+  Reg = {region};
+  DeviceTxns = SELECT t FROM Transaction:t -(FROM_DEVICE>)- Dev:d
+               ;
+  RegionTxns = SELECT t FROM Transaction:t -(BILLED_IN>)- Reg:r
+               ;
+  ViaDevice = SELECT cc FROM DeviceTxns:t -(INVOLVES)- ClosedCase:cc LIMIT 10;
+  ViaRegion = SELECT cc FROM RegionTxns:t -(INVOLVES)- ClosedCase:cc LIMIT 10;
   ViaPattern = SELECT cc FROM ClosedCase:cc WHERE cc.pattern == p_pattern_hint LIMIT 10;
   PRINT ViaDevice, ViaRegion, ViaPattern;
 }

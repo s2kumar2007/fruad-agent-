@@ -11,11 +11,12 @@ core (agent/graph_state.py) should not need to change.
 import csv
 import hashlib
 import json
+import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-DATA_DIR = Path("/home/claude/hhgoa/HHGOA_IEEE")
+DATA_DIR = Path(os.environ.get("HHGOA_DATA_DIR", "/home/claude/hhgoa/HHGOA_IEEE"))
 
 # Columns we actually need from the 397-column transactions.csv.
 # (V1-V339, most C/D/M columns are available but not pulled into memory by
