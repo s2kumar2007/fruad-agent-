@@ -1,6 +1,3 @@
 .env
 __pycache__/
 *.pyc
-cases_backup/
-extract_cases.py
-reconstruct_case_pack.py
