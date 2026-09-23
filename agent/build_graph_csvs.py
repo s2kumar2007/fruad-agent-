@@ -29,7 +29,7 @@ def run():
             t = gs.txn_by_id[sample_tid]
             w.writerow([card_id, t.get("card4", ""), t.get("card6", "")])
 
-    with open(OUT / "transactions.csv", "w", newline="") as f:
+    with open(OUT / "graph_transactions.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["txn_id", "amount", "ts", "dt_seconds", "product_cd", "channel",
                      "addr1", "addr2", "risk_score", "p_email", "r_email"])

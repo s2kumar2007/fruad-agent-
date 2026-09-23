@@ -2,7 +2,7 @@ USE GRAPH FraudGraph
 
 // Run against the *derived* CSVs produced by agent/build_graph_csvs.py,
 // which pre-joins transactions.csv + identity.csv into loader-friendly files:
-//   customers.csv, cards.csv, transactions.csv, devices.csv, regions.csv,
+//   customers.csv, cards.csv, graph_transactions.csv, devices.csv, regions.csv,
 //   emails.csv, edges_made.csv, edges_from_device.csv, edges_billed_in.csv,
 //   edges_purchaser_email.csv, edges_next.csv, closed_cases.csv,
 //   edges_closed_involves.csv, edges_closed_on_card.csv, edges_closed_connected.csv

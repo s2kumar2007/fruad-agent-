@@ -16,7 +16,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("HHGOA_DATA_DIR", "/home/claude/hhgoa/HHGOA_IEEE"))
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DATA_DIR = Path(os.environ.get("HHGOA_DATA_DIR", str(DEFAULT_DATA_DIR)))
 
 # Columns we actually need from the 397-column transactions.csv.
 # (V1-V339, most C/D/M columns are available but not pulled into memory by
@@ -101,6 +102,8 @@ class LocalGraphStore:
 
     def _load_transactions(self, verbose):
         path = DATA_DIR / "transactions.csv"
+        if not path.exists():
+            raise FileNotFoundError(f"[ERROR] Required file not found: {path}")
         n = 0
         with open(path, newline="") as f:
             r = csv.DictReader(f)
@@ -119,6 +122,9 @@ class LocalGraphStore:
 
     def _load_identity(self, verbose):
         path = DATA_DIR / "identity.csv"
+        if not path.exists():
+            print(f"  [SKIP] {path} not found – proceeding without identity data.")
+            return
         n = 0
         with open(path, newline="") as f:
             r = csv.DictReader(f)
@@ -133,6 +139,9 @@ class LocalGraphStore:
 
     def _load_closed_cases(self, verbose):
         path = DATA_DIR / "closed_cases_history.csv"
+        if not path.exists():
+            print(f"  [SKIP] {path} not found – proceeding without closed case data.")
+            return
         with open(path, newline="") as f:
             r = csv.DictReader(f)
             for row in r:

@@ -194,7 +194,7 @@ banner("Step 3b - Triggering loading job")
 DATA_FILES = {
     "f_customers"    : "data/customers.csv",
     "f_cards"        : "data/cards.csv",
-    "f_txns"         : "data/transactions.csv",
+    "f_txns"         : "data/graph_transactions.csv",
     "f_devices"      : "data/devices.csv",
     "f_regions"      : "data/regions.csv",
     "f_emails"       : "data/emails.csv",
