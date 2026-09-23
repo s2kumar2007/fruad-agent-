@@ -85,11 +85,13 @@ with left:
     verdict_filter = st.multiselect("Filter by verdict", options=df["verdict"].unique().tolist(),
                                      default=df["verdict"].unique().tolist())
     filtered = df[df["verdict"].isin(verdict_filter)]
+    case_options = filtered["case_id"].tolist()
+    selected = st.selectbox("Open case", options=case_options)
     st.dataframe(
         filtered[["case_id", "verdict", "pattern", "probability", "exposure_usd", "sar_filed"]],
         use_container_width=True, hide_index=True,
     )
-    selected = st.selectbox("Open case", filtered["case_id"].tolist())
+
 
 with right:
     if selected:

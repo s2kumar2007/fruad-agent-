@@ -4,34 +4,33 @@ an AgentCase vertex + edges, via the write_agent_case GSQL query
 (gsql/03_queries.gsql). This is the "also written back to the graph"
 requirement from the submission spec.
 
-Usage (once TigerGraph Savanna is provisioned):
+Usage:
     export TG_HOST="https://<your-instance>.i.tgcloud.io"
-    export TG_USERNAME="..."
-    export TG_PASSWORD="..."
+    export TG_SECRET="..."
     export TG_GRAPH="FraudGraph"
-    pip install pyTigerGraph --break-system-packages
-    python3 -m agent.write_back
-
-This does NOT run against a live instance from this sandbox (no network
-egress to TigerGraph Cloud here) -- it's structured and ready to run as-is
-once real credentials are exported.
+    python -m agent.write_back
 """
 import glob
 import json
 import os
+import requests
+import pyTigerGraph as tg
+from dotenv import load_dotenv
+from agent.tg_store import get_tg_token
 
 
 def get_connection():
-    import pyTigerGraph as tg
-    from dotenv import load_dotenv
     load_dotenv()
     host = os.environ.get("TG_HOST")
-    username = os.environ.get("TG_USERNAME", "tigergraph")
-    password = os.environ.get("TG_PASSWORD", "tigergraph")
+    secret = os.environ.get("TG_SECRET")
     graph = os.environ.get("TG_GRAPH", "FraudGraph")
-    conn = tg.TigerGraphConnection(host=host, username=username, password=password, graphname=graph)
-    conn.getToken()
+    if not host or not secret:
+        raise RuntimeError("Missing TG_HOST or TG_SECRET in environment")
+    token = get_tg_token(host, secret, graph)
+    conn = tg.TigerGraphConnection(host=host, graphname=graph, apiToken=token)
+    conn.apiToken = token
     return conn
+
 
 
 def write_case(conn, case_id, answer):

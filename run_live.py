@@ -170,8 +170,19 @@ try:
         "USE GRAPH {graph}\nDROP QUERY card_window, device_neighbors, region_cluster, card_history, similar_closed_cases, write_agent_case".format(graph=TG_GRAPH),
         "drop existing queries",
     )
+    print("  Creating queries from gsql/03_queries.gsql ...")
     result = apply_gsql_file(conn, "gsql/03_queries.gsql")
     print(result)
+    print("  Installing all queries (TigerGraph compiles to C++ — can take 60-120 seconds) ...")
+    install_result = conn.gsql(f"USE GRAPH {TG_GRAPH}\nINSTALL QUERY ALL")
+    print(install_result)
+    install_ok = any(kw in str(install_result).lower()
+                     for kw in ["successfully installed", "install query", "compiled", "done"])
+    if install_ok:
+        print("  ✓ Query installation confirmed by TigerGraph.")
+    else:
+        print("  [WARN] INSTALL QUERY ALL sent, but no explicit confirmation token found in response.")
+        print("         write_back may still work — TigerGraph sometimes returns partial output.")
 except Exception as e:
     msg = f"[ERROR applying gsql/03_queries.gsql] {e}"
     print(f"  {msg}")
