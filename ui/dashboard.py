@@ -11,7 +11,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Fraud Investigation Agent", layout="wide")
 
-CASES_DIR = "/home/claude/fraud-agent/cases"
+CASES_DIR = "cases"
 
 
 @st.cache_data
