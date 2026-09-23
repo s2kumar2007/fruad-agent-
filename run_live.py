@@ -68,8 +68,12 @@ banner("Step 2-4 – Connecting to TigerGraph and applying GSQL files")
 
 try:
     # Use pre-generated DB secret — do NOT call createSecret() here.
+    # NOTE: getToken() already sets conn.apiToken internally to the bare token string.
+    # Assigning its return value would overwrite that with a tuple — don't do it.
     conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH)
-    conn.apiToken = conn.getToken(TG_SECRET)
+    _tok_result = conn.getToken(TG_SECRET)
+    print(f"  [DEBUG] getToken type={type(_tok_result)}  raw={_tok_result}")
+    print(f"  [DEBUG] conn.apiToken={conn.apiToken!r}")
     print(f"  Connected to {TG_HOST}  graph={TG_GRAPH}")
 except Exception as e:
     print(f"  [AUTH ERROR] {e}")

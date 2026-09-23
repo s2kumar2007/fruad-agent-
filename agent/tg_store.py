@@ -14,11 +14,15 @@ class TigerGraphMCPStore:
             try:
                 # Use a pre-generated DB secret from the Savanna console.
                 # Do NOT call createSecret() — we already have one.
+                # NOTE: getToken() already sets self.apiToken internally — do NOT assign its
+                # return value to conn.apiToken (the return is a tuple, not a bare string).
                 self.conn = tg.TigerGraphConnection(
                     host=self.host,
                     graphname=self.graph,
                 )
-                self.conn.apiToken = self.conn.getToken(self.secret)
+                _tok_result = self.conn.getToken(self.secret)
+                print(f"[tg_store] getToken type={type(_tok_result)}  raw={_tok_result}")
+                print(f"[tg_store] conn.apiToken set to: {self.conn.apiToken!r}")
             except Exception as e:
                 print(f"TigerGraph connection error: {e}")
                 self.conn = None
