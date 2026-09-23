@@ -16,7 +16,7 @@ VALID_VERDICTS = {"fraud", "legitimate", "uncertain"}
 VALID_STATUS = {"open", "closed_fraud", "closed_legitimate", "escalated"}
 
 ok = True
-for p in sorted(Path("/home/claude/fraud-agent/cases").glob("*.json")):
+for p in sorted(Path("cases").glob("*.json")):
     d = json.load(open(p))
     missing_top = REQUIRED_TOP - d.keys()
     missing_case = REQUIRED_CASE - d.get("case", {}).keys()

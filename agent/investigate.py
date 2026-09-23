@@ -21,11 +21,11 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 
-from agent.data_store import LocalGraphStore
+from agent.tg_store import TigerGraphMCPStore as LocalGraphStore
 from agent import policy
 
-DATA_DIR = Path("/home/claude/hhgoa/HHGOA_IEEE")
-OUT_DIR = Path("/home/claude/fraud-agent/cases")
+DATA_DIR = Path("data")
+OUT_DIR = Path("cases")
 
 
 def load_case_pack():
@@ -592,18 +592,24 @@ def build_sar(pattern, verdict, final_actions, exposure_now, affected, gs, case_
     }
 
 
-def synthesize_summary(case_row, pattern, verdict, prob, exposure_now, evidence_requests):
-    base = f"Case {case_row['case_id']}: {verdict} verdict (p={prob:.2f}) on card {case_row['card_id']}."
-    if pattern != "none":
-        base += f" Pattern: {pattern.replace('_', ' ')}."
-    if exposure_now:
-        base += f" Exposure ${exposure_now:,.2f}."
-    if evidence_requests:
-        base += " Customer validation was requested; recommendation was updated once the assumed response came back."
-    else:
-        base += " No additional evidence was required to reach a defensible decision."
-    return base
+from agent.graph_state import call_grok
 
+def synthesize_summary(case_row, pattern, verdict, prob, exposure_now, evidence_requests):
+    try:
+        sys_prompt = "You are an expert fraud analyst. Write a one-paragraph summary of the case."
+        user_prompt = f"Case details: {case_row['case_id']}, Verdict: {verdict}, Probability: {prob}, Pattern: {pattern}, Exposure: ${exposure_now}. Evidence requests: {evidence_requests}"
+        return call_grok(sys_prompt, user_prompt)
+    except Exception as e:
+        base = f"Case {case_row['case_id']}: {verdict} verdict (p={prob:.2f}) on card {case_row['card_id']}."
+        if pattern != "none":
+            base += f" Pattern: {pattern.replace('_', ' ')}."
+        if exposure_now:
+            base += f" Exposure ${exposure_now:,.2f}."
+        if evidence_requests:
+            base += " Customer validation was requested; recommendation was updated once the assumed response came back."
+        else:
+            base += " No additional evidence was required to reach a defensible decision."
+        return base
 
 def decide_stop_reason(final_prob, evidence_requests):
     if final_prob >= 0.85 or final_prob <= 0.15:
@@ -621,7 +627,6 @@ def build_missing_txn_case(case_row):
 def run_all():
     OUT_DIR.mkdir(exist_ok=True, parents=True)
     gs = LocalGraphStore(needed_customers=None)
-    gs.load()
     cases = load_case_pack()
     results = []
     for c in cases:

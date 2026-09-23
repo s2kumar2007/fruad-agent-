@@ -23,9 +23,11 @@ import os
 
 def get_connection():
     import pyTigerGraph as tg
-    host = os.environ["TG_HOST"]
-    username = os.environ["TG_USERNAME"]
-    password = os.environ["TG_PASSWORD"]
+    from dotenv import load_dotenv
+    load_dotenv()
+    host = os.environ.get("TG_HOST")
+    username = os.environ.get("TG_USERNAME", "tigergraph")
+    password = os.environ.get("TG_PASSWORD", "tigergraph")
     graph = os.environ.get("TG_GRAPH", "FraudGraph")
     conn = tg.TigerGraphConnection(host=host, username=username, password=password, graphname=graph)
     conn.getToken()
@@ -61,7 +63,7 @@ def write_case(conn, case_id, answer):
 
 def run_all(case_pack_lookup):
     conn = get_connection()
-    for path in sorted(glob.glob("/home/claude/fraud-agent/cases/*.json")):
+    for path in sorted(glob.glob("cases/*.json")):
         answer = json.load(open(path))
         case_id = answer["case_id"]
         row = case_pack_lookup.get(case_id, {})

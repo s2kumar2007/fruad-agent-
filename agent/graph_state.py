@@ -28,7 +28,7 @@ from typing import TypedDict, List, Dict, Any
 
 # --- TODO(2): xAI / Grok wrapper -------------------------------------------
 GROK_API_KEY_ENV = "XAI_API_KEY"
-GROK_MODEL = "grok-4"  # confirm current model name against xAI docs before shipping
+GROK_MODEL = "grok-beta"  # Updated to real model
 GROK_URL = "https://api.x.ai/v1/chat/completions"
 
 
@@ -57,8 +57,8 @@ def call_grok(system: str, user: str, max_tokens: int = 800) -> str:
 
 
 # --- TODO(1): swap this for a TigerGraph MCP-backed store ------------------
-# from agent.tigergraph_mcp_store import TigerGraphMCPStore as GraphStoreImpl
-from agent.data_store import LocalGraphStore as GraphStoreImpl
+from agent.tg_store import TigerGraphMCPStore as GraphStoreImpl
+# from agent.data_store import LocalGraphStore as GraphStoreImpl
 
 
 class InvestigationState(TypedDict, total=False):
