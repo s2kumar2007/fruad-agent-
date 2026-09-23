@@ -3,7 +3,7 @@
   "case": {
     "status": "closed_fraud",
     "verdict": "fraud",
-    "fraud_probability": 0.77,
+    "fraud_probability": 0.75,
     "pattern": "card_not_present_new_device",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -11,9 +11,7 @@
     ],
     "first_suspicious_txn_id": "3478561",
     "connected_card_ids": [],
-    "connected_device_profiles": [
-      "SM-G935F Build/NRD90M | Android 7.0 | chrome 62.0 for android | 1920x1080"
-    ],
+    "connected_device_profiles": [],
     "exposure_usd": 74.96,
     "evidence": [
       {
@@ -25,32 +23,14 @@
         ]
       },
       {
-        "claim": "Device profile also appears on 5 closed case(s) confirmed as fraud",
-        "source": "graph",
-        "ref": "query:similar_closed_cases(device_key=...)",
-        "entity_ids": [
-          "CC-0011",
-          "CC-0018",
-          "CC-0019",
-          "CC-0029",
-          "CC-0031"
-        ]
-      },
-      {
         "claim": "Customer denied making the flagged transaction",
         "source": "customer",
         "ref": "evidence_request:1",
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0011",
-      "CC-0018",
-      "CC-0019",
-      "CC-0029",
-      "CC-0031"
-    ],
-    "summary": "Case HHG-014: fraud verdict (p=0.77) on card C13487-K1. Pattern: card not present new device. Exposure $74.96. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "similar_prior_cases": [],
+    "summary": "Case HHG-014: fraud verdict (p=0.75) on card C13487-K1. Pattern: card not present new device. Exposure $74.96. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-014"
   },
@@ -66,7 +46,7 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.55 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
       }
     ],
     "final": [
@@ -81,11 +61,6 @@
         "reason": "R2"
       },
       {
-        "action": "FILE_REPORT",
-        "route": "L2",
-        "reason": "R2: exposure exceeds $1,000 or activity connects to a shared device/another card's fraud"
-      },
-      {
         "action": "MONITOR_CONNECTED_CARDS",
         "route": "auto",
         "reason": "R6: same device profile links this to other card(s)"
@@ -94,18 +69,12 @@
     "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
   },
   "sar": {
-    "file": true,
-    "reason": "R2/R6: confirmed or strongly suspected unauthorized use above the reporting threshold or connected to a shared device",
-    "narrative": "Between 2016-11-22 and 2016-11-22, card C13487-K1 belonging to customer C13487 was used for 1 transaction(s) totaling $74.96 that the bank has assessed as card not present new device. The cardholder was asked to validate the activity and denied making the transaction(s), consistent with unauthorized use rather than a recognized recurring pattern. Affected transaction IDs: 3478561. The card has been blocked and scheduled for reissue; connected cards, where identified, have been placed under monitoring pending further review. This activity is reported as suspicious because it is inconsistent with the cardholder's established transaction history and, where applicable, is linked to other compromised cards through a common device profile.",
-    "subjects": [
-      "C13487",
-      "C13487-K1"
-    ],
-    "total_amount_usd": 74.96,
-    "activity_dates": [
-      "2016-11-22",
-      "2016-11-22"
-    ]
+    "file": false,
+    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
   },
   "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
   "tool_calls": 8,

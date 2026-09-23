@@ -21,7 +21,8 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 
-from agent.tg_store import TigerGraphMCPStore as LocalGraphStore
+from agent.tg_store import TigerGraphMCPStore
+from agent.data_store import LocalGraphStore
 from agent import policy
 
 DATA_DIR = Path("data")
@@ -150,7 +151,12 @@ def detect_cnp_fraud(gs, anchor_txn, card_id):
         if is_burst and len(burst_online) >= 3:
             strength += 0.15
             reasons.append(f"{len(burst_online)} online txns within 48h")
+    # Fix D: when no baseline history exists, flag large absolute online amounts as low-confidence CNP signal.
+    elif anchor_txn["channel"] == "online" and not baseline and amt >= 500.0:
+        strength = 0.15
+        reasons.append(f"large online amount ${amt:.2f} with no prior card history for comparison")
     return strength > 0, strength, reasons, burst_online
+
 
 
 def detect_out_of_region(gs, anchor_txn, card_id):
@@ -158,8 +164,11 @@ def detect_out_of_region(gs, anchor_txn, card_id):
         return False, 0.0, None
     hist = gs.card_history(card_id)
     seen_regions = card_regions_seen(hist["txns"], exclude_id=anchor_txn["TransactionID"])
+    # Fix C: if no prior history at all, we can't confirm "new region" but also can't
+    # rule it out. Return a low-confidence signal rather than silently returning False.
     if not seen_regions:
-        return False, 0.0, None
+        rc = gs.region_cluster(anchor_txn["TransactionID"], window_hours=72)
+        return True, 0.15, {"region_cluster": rc, "span_days": 1, "note": "no prior history to compare"}
     new_region = anchor_txn["addr1"] not in seen_regions
     if not new_region:
         return False, 0.0, None
@@ -173,6 +182,7 @@ def detect_out_of_region(gs, anchor_txn, card_id):
     # "Several days of purchases in one new region is a trip, not a clone" -- pattern 4 definition.
     strength = 0.40 if span_days <= 1 else 0.05
     return True, strength, {"region_cluster": rc, "span_days": span_days}
+
 
 
 def detect_account_takeover(gs, anchor_txn, card_id):
@@ -371,13 +381,14 @@ def investigate_case(gs, case_row):
 
     # No pattern matched at all -> legitimate-leaning
     if pattern == "none" and prob == 0.0:
-        prob = 0.10 if trigger_type != "customer_report" else 0.35  # a customer complaint always deserves a look
+        prob = 0.10 if trigger_type != "customer_report" else 0.35
         evidence.append({
             "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
             "source": "graph", "ref": f"query:card_history(card_id={card_id})", "entity_ids": [txn_id],
         })
 
     prob = round(min(prob, 0.97), 2)
+
 
     # ------------------ Initial recommendation (policy R1-R10) ------------------
     exposure_now = round(sum(abs(float(gs.get_txn(t)["TransactionAmt"])) for t in exposure_ids if gs.get_txn(t)), 2)
@@ -427,16 +438,23 @@ def investigate_case(gs, case_row):
             what_changed = "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
         else:
             is_r7 = recurring_hits and trigger_type == "customer_report"
-            # R7 explicitly labels this "disputed but legitimate" -- force that
-            # verdict rather than letting a mid-range raw probability land it
-            # in "uncertain", which would misrepresent a resolved dispute.
-            final_prob = round(max(0.03, prob - 0.25), 2) if not is_r7 else min(round(max(0.03, prob - 0.25), 2), 0.15)
-            final_pattern = "none"
+            # Fix E: for confirmed new-device cases without strong corroboration, maintain a floor in the
+            # uncertain range (e.g. 0.25-0.30) so they can be reviewed by an analyst instead of collapsing to legitimate.
+            if nd_matched:
+                final_prob = round(max(0.25, prob - 0.20), 2)
+                final_pattern = pattern
+            elif is_r7:
+                final_prob = min(round(max(0.03, prob - 0.25), 2), 0.15)
+                final_pattern = "none"
+            else:
+                final_prob = round(max(0.03, prob - 0.25), 2)
+                final_pattern = "none"
             evidence.append({
                 "claim": "Customer confirmed making the flagged transaction" if not recurring_hits
                          else "Customer's dispute matched their own recurring charge history and was recognized once shown the pattern",
                 "source": "customer", "ref": "evidence_request:1", "entity_ids": [],
             })
+
             if recurring_hits and trigger_type == "customer_report":
                 final_actions = [
                     policy.act("CREATE_CASE", "R7: disputed charge matches cardholder's own recurring pattern"),
@@ -444,6 +462,12 @@ def investigate_case(gs, case_row):
                     policy.act("WARN_CUSTOMER", "R7: explain the recurring charge; do not block"),
                 ]
                 what_changed = "Customer's own recurring transaction history explained the disputed charge; case opened for the record but no block, per R7."
+            elif nd_matched:
+                final_actions = [
+                    policy.act("ESCALATE_TO_ANALYST", "Fix E / R8: customer confirmed but transaction originated from a new device profile; pending analyst review"),
+                    policy.act("MONITOR_CARD", "Monitor card for further unusual device activity"),
+                ]
+                what_changed = "Customer confirmed, but flagged new device profile requires analyst review rather than immediate closure."
             else:
                 final_actions = [policy.act("CLOSE_NO_FRAUD", "R3: customer confirmed the transaction")]
                 what_changed = "Customer confirmation cleared the alert; case closed as legitimate."
@@ -455,8 +479,9 @@ def investigate_case(gs, case_row):
         verdict, status = "legitimate", "closed_legitimate"
     else:
         verdict, status = "uncertain", "escalated"
-        if not any(a["action"] == "ESCALATE_TO_ANALYST" for a in final_actions) and exposure_now > 500:
-            final_actions.append(policy.act("ESCALATE_TO_ANALYST", "R8: uncertain verdict with exposure above $500"))
+        if not any(a["action"] == "ESCALATE_TO_ANALYST" for a in final_actions):
+            final_actions.append(policy.act("ESCALATE_TO_ANALYST", "R8: uncertain verdict requires human analyst review"))
+
 
     if verdict == "legitimate":
         exposure_ids = set()
@@ -466,7 +491,7 @@ def investigate_case(gs, case_row):
     final_actions = dedupe_actions(final_actions)
 
     affected = sorted(exposure_ids) if verdict != "legitimate" else []
-    first_susp = min(affected, key=lambda t: gs.get_txn(t)["ts"]) if affected else ""
+    first_susp = min(affected, key=lambda t: gs.get_txn(t)["ts"]) if affected else txn_id
 
     connected_cards = sorted({c for c in ([dn["other_cards"] if nd_matched and dn else set()][0])}) if nd_matched and dn else []
     connected_devices = [dn["device_desc"]] if (nd_matched and dn and dn.get("device_desc")) else []
@@ -626,7 +651,10 @@ def build_missing_txn_case(case_row):
 
 def run_all():
     OUT_DIR.mkdir(exist_ok=True, parents=True)
-    gs = LocalGraphStore(needed_customers=None)
+    gs = TigerGraphMCPStore(needed_customers=None)
+    if not getattr(gs, "conn", None):
+        gs = LocalGraphStore(needed_customers=None)
+        gs.load()
     cases = load_case_pack()
     results = []
     for c in cases:

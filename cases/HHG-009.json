@@ -3,24 +3,15 @@
   "case": {
     "status": "closed_legitimate",
     "verdict": "legitimate",
-    "fraud_probability": 0.1,
+    "fraud_probability": 0.03,
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "first_suspicious_txn_id": "3581141",
     "connected_card_ids": [],
     "connected_device_profiles": [],
     "exposure_usd": 0.0,
     "evidence": [
-      {
-        "claim": "Flagged charge matches the cardholder's own recurring pattern: same product code and amount (within 8%) recurring roughly monthly, e.g. 3545489",
-        "source": "graph",
-        "ref": "query:card_history(card_id=C08299-K1)",
-        "entity_ids": [
-          "3581141",
-          "3545489"
-        ]
-      },
       {
         "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
         "source": "graph",
@@ -36,12 +27,8 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0084",
-      "CC-0367",
-      "CC-0411"
-    ],
-    "summary": "Case HHG-009: legitimate verdict (p=0.10) on card C08299-K1. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "similar_prior_cases": [],
+    "summary": "Case HHG-009: legitimate verdict (p=0.03) on card C08299-K1. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-009"
   },
@@ -57,27 +44,17 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.10 on limited signal, verify before any block"
       }
     ],
     "final": [
       {
-        "action": "CREATE_CASE",
+        "action": "CLOSE_NO_FRAUD",
         "route": "auto",
-        "reason": "R7: disputed charge matches cardholder's own recurring pattern"
-      },
-      {
-        "action": "VERIFY_WITH_CUSTOMER",
-        "route": "auto",
-        "reason": "R7: confirm recurring merchant/amount with cardholder"
-      },
-      {
-        "action": "WARN_CUSTOMER",
-        "route": "auto",
-        "reason": "R7: explain the recurring charge; do not block"
+        "reason": "R3: customer confirmed the transaction"
       }
     ],
-    "what_changed": "Customer's own recurring transaction history explained the disputed charge; case opened for the record but no block, per R7."
+    "what_changed": "Customer confirmation cleared the alert; case closed as legitimate."
   },
   "sar": {
     "file": false,

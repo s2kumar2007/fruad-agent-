@@ -1,26 +1,19 @@
 {
   "case_id": "HHG-016",
   "case": {
-    "status": "closed_legitimate",
-    "verdict": "legitimate",
-    "fraud_probability": 0.1,
-    "pattern": "none",
+    "status": "escalated",
+    "verdict": "uncertain",
+    "fraud_probability": 0.25,
+    "pattern": "card_not_present_new_device",
     "pattern_description": "",
-    "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "affected_txn_ids": [
+      "3534820"
+    ],
+    "first_suspicious_txn_id": "3534820",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 0.0,
+    "exposure_usd": 59.67,
     "evidence": [
-      {
-        "claim": "Flagged charge matches the cardholder's own recurring pattern: same product code and amount (within 8%) recurring roughly monthly, e.g. 3474173",
-        "source": "graph",
-        "ref": "query:card_history(card_id=C09988-K1)",
-        "entity_ids": [
-          "3534820",
-          "3474173"
-        ]
-      },
       {
         "claim": "Transaction from a device profile marked 'New' for this account",
         "source": "graph",
@@ -36,12 +29,8 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0011",
-      "CC-0018",
-      "CC-0019"
-    ],
-    "summary": "Case HHG-016: legitimate verdict (p=0.10) on card C09988-K1. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "similar_prior_cases": [],
+    "summary": "Case HHG-016: uncertain verdict (p=0.25) on card C09988-K1. Pattern: card not present new device. Exposure $59.67. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-016"
   },
@@ -62,22 +51,17 @@
     ],
     "final": [
       {
-        "action": "CREATE_CASE",
+        "action": "ESCALATE_TO_ANALYST",
         "route": "auto",
-        "reason": "R7: disputed charge matches cardholder's own recurring pattern"
+        "reason": "Fix E / R8: customer confirmed but transaction originated from a new device profile; pending analyst review"
       },
       {
-        "action": "VERIFY_WITH_CUSTOMER",
+        "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R7: confirm recurring merchant/amount with cardholder"
-      },
-      {
-        "action": "WARN_CUSTOMER",
-        "route": "auto",
-        "reason": "R7: explain the recurring charge; do not block"
+        "reason": "Monitor card for further unusual device activity"
       }
     ],
-    "what_changed": "Customer's own recurring transaction history explained the disputed charge; case opened for the record but no block, per R7."
+    "what_changed": "Customer confirmed, but flagged new device profile requires analyst review rather than immediate closure."
   },
   "sar": {
     "file": false,
@@ -87,7 +71,7 @@
     "total_amount_usd": 0,
     "activity_dates": []
   },
-  "stop_reason": "Fraud probability reached a decisive threshold (>=0.85 or <=0.15) on independent evidence; further steps would not change the action.",
+  "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
   "tool_calls": 8,
   "tokens": 0,
   "latency_s": 0.0

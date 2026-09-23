@@ -4,20 +4,18 @@
     "status": "closed_fraud",
     "verdict": "fraud",
     "fraud_probability": 0.75,
-    "pattern": "account_takeover",
-    "pattern_description": "",
-    "affected_txn_ids": [
-      "3491361"
-    ],
+    "pattern": "undocumented",
+    "pattern_description": "Customer denies a transaction with no signal matching a documented pattern (no shared device, no new region, no burst, no amount/product anomaly). Recorded as undocumented pending analyst review rather than forced into a known category.",
+    "affected_txn_ids": [],
     "first_suspicious_txn_id": "3491361",
     "connected_card_ids": [],
     "connected_device_profiles": [],
-    "exposure_usd": 39.08,
+    "exposure_usd": 0,
     "evidence": [
       {
-        "claim": "Mixed-channel activity () within 24h alongside failed match flags: M6",
+        "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
         "source": "graph",
-        "ref": "query:card_window(card_id=C02354-K2,hours=24)",
+        "ref": "query:card_history(card_id=C02354-K2)",
         "entity_ids": [
           "3491361"
         ]
@@ -29,12 +27,8 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0079",
-      "CC-0529",
-      "CC-0611"
-    ],
-    "summary": "Case HHG-018: fraud verdict (p=0.75) on card C02354-K2. Pattern: account takeover. Exposure $39.08. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "similar_prior_cases": [],
+    "summary": "Case HHG-018: fraud verdict (p=0.75) on card C02354-K2. Pattern: undocumented. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-018"
   },
@@ -50,7 +44,7 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.15 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
       }
     ],
     "final": [
@@ -63,15 +57,28 @@
         "action": "CREATE_CASE",
         "route": "auto",
         "reason": "R2"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R9: undocumented but coordinated/repeated abuse pattern"
+      },
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R9: undocumented pattern needs analyst review"
       }
     ],
     "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
   },
   "sar": {
-    "file": false,
-    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
-    "narrative": "",
-    "subjects": [],
+    "file": true,
+    "reason": "R2/R6: confirmed or strongly suspected unauthorized use above the reporting threshold or connected to a shared device",
+    "narrative": "Between the dates below and , card C02354-K2 belonging to customer C02354 was used for 0 transaction(s) totaling $0.00 that the bank has assessed as undocumented. The cardholder was asked to validate the activity and denied making the transaction(s), consistent with unauthorized use rather than a recognized recurring pattern. Affected transaction IDs: . The card has been blocked and scheduled for reissue; connected cards, where identified, have been placed under monitoring pending further review. This activity is reported as suspicious because it is inconsistent with the cardholder's established transaction history and, where applicable, is linked to other compromised cards through a common device profile.",
+    "subjects": [
+      "C02354",
+      "C02354-K2"
+    ],
     "total_amount_usd": 0,
     "activity_dates": []
   },

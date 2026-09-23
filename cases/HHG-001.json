@@ -7,7 +7,7 @@
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "first_suspicious_txn_id": "3514030",
     "connected_card_ids": [],
     "connected_device_profiles": [],
     "exposure_usd": 0.0,

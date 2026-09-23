@@ -7,7 +7,7 @@
     "pattern": "none",
     "pattern_description": "",
     "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "first_suspicious_txn_id": "3553342",
     "connected_card_ids": [],
     "connected_device_profiles": [],
     "exposure_usd": 0.0,
@@ -35,11 +35,7 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0557",
-      "CC-1828",
-      "CC-4544"
-    ],
+    "similar_prior_cases": [],
     "summary": "Case HHG-012: legitimate verdict (p=0.15) on card C05876-K2. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-012"

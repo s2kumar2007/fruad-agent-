@@ -23,3 +23,5 @@ build/
 .idea/
 
 data/transactions.csv
+data/identity.csv
+data/closed_cases_history.csv

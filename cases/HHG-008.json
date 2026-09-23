@@ -7,7 +7,7 @@
     "pattern": "undocumented",
     "pattern_description": "Customer denies a transaction with no signal matching a documented pattern (no shared device, no new region, no burst, no amount/product anomaly). Recorded as undocumented pending analyst review rather than forced into a known category.",
     "affected_txn_ids": [],
-    "first_suspicious_txn_id": "",
+    "first_suspicious_txn_id": "3558054",
     "connected_card_ids": [],
     "connected_device_profiles": [],
     "exposure_usd": 0,

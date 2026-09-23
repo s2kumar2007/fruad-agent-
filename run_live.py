@@ -185,6 +185,17 @@ banner("Step 3a - Building loader CSVs")
 try:
     import agent.build_graph_csvs as csv_builder
     csv_builder.run()
+
+    # Check for missing source files and warn loudly
+    from agent.data_store import DATA_DIR
+    if not (DATA_DIR / "identity.csv").exists():
+        print("  [WARNING] data/identity.csv is MISSING!")
+        print("            Device signals (edges_from_device.csv, devices.csv) will be empty.")
+        print("            Device-based fraud detection rules will be non-functional.")
+    if not (DATA_DIR / "closed_cases_history.csv").exists():
+        print("  [WARNING] data/closed_cases_history.csv is MISSING!")
+        print("            Case memory (closed_cases.csv, etc.) will be empty.")
+        print("            Prior case retrieval will be non-functional.")
 except Exception as e:
     msg = f"[ERROR building loader CSVs] {e}"
     print(f"  {msg}")
