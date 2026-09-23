@@ -13,17 +13,17 @@
     "exposure_usd": 0.0,
     "evidence": [
       {
-        "claim": "Mixed-channel activity () within 24h alongside failed match flags: M6",
+        "claim": "Bank model risk score was 0.87 at trigger time (input signal only, not treated as a verdict)",
         "source": "graph",
-        "ref": "query:card_window(card_id=C09933-K2,hours=24)",
+        "ref": "case_pack.csv",
         "entity_ids": [
           "3514948"
         ]
       },
       {
-        "claim": "Bank model risk score was 0.87 at trigger time (input signal only, not treated as a verdict)",
+        "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
         "source": "graph",
-        "ref": "case_pack.csv",
+        "ref": "query:card_history(card_id=C09933-K2)",
         "entity_ids": [
           "3514948"
         ]
@@ -35,11 +35,7 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0063",
-      "CC-0103",
-      "CC-0118"
-    ],
+    "similar_prior_cases": [],
     "summary": "Case HHG-007: legitimate verdict (p=0.03) on card C09933-K2. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-007"
@@ -56,7 +52,7 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.15 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.10 on limited signal, verify before any block"
       }
     ],
     "final": [

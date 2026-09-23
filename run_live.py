@@ -286,10 +286,18 @@ for p in sorted(glob.glob("cases/*.json")):
         continue
     lc, sc = live["case"], stub["case"]
     diffs = []
-    for field in ("verdict", "pattern", "fraud_probability"):
+    for field in ("verdict", "pattern", "fraud_probability", "exposure_usd"):
         if lc.get(field) != sc.get(field):
             diffs.append(f"{field}: stub={sc.get(field)!r} -> live={lc.get(field)!r}")
-    if set(a["action"] for a in lc.get("evidence", [])) != set(a.get("action","") for a in sc.get("evidence", [])):
+
+    live_final_actions = [a.get("action", "") for a in live.get("next_best_actions", {}).get("final", [])]
+    stub_final_actions = [a.get("action", "") for a in stub.get("next_best_actions", {}).get("final", [])]
+    if live_final_actions != stub_final_actions:
+        diffs.append(f"final_actions: stub={stub_final_actions!r} -> live={live_final_actions!r}")
+
+    live_evidence = {(e.get("claim", ""), e.get("source", ""), e.get("ref", "")) for e in lc.get("evidence", [])}
+    stub_evidence = {(e.get("claim", ""), e.get("source", ""), e.get("ref", "")) for e in sc.get("evidence", [])}
+    if live_evidence != stub_evidence:
         diffs.append("evidence trail changed")
     if diffs:
         print(f"  {cid}: CHANGED -> " + "; ".join(diffs))

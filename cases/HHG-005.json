@@ -37,11 +37,7 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0117",
-      "CC-0273",
-      "CC-0475"
-    ],
+    "similar_prior_cases": [],
     "summary": "Case HHG-005: uncertain verdict (p=0.25) on card C02923-K1. Pattern: card not present new device. Exposure $100.07. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-005"

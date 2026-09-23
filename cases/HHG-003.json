@@ -29,11 +29,7 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0006",
-      "CC-0016",
-      "CC-0053"
-    ],
+    "similar_prior_cases": [],
     "summary": "Case HHG-003: fraud verdict (p=0.75) on card C08623-K2. Pattern: out of region use. Exposure $49.00. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-003"

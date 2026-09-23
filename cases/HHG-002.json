@@ -36,11 +36,7 @@
         "entity_ids": []
       }
     ],
-    "similar_prior_cases": [
-      "CC-0001",
-      "CC-0007",
-      "CC-0012"
-    ],
+    "similar_prior_cases": [],
     "summary": "Case HHG-002: legitimate verdict (p=0.05) on card C11891-K1. Customer validation was requested; recommendation was updated once the assumed response came back.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-002"

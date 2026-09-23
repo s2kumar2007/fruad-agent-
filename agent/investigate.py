@@ -428,6 +428,8 @@ def investigate_case(gs, case_row):
                 "source": "customer", "ref": "evidence_request:1", "entity_ids": [],
             })
             if pattern == "none":
+                exposure_ids.add(txn_id)
+                exposure_now = round(abs(float(anchor["TransactionAmt"])), 2)
                 final_pattern = "undocumented"
                 pattern_description = (
                     "Customer denies a transaction with no signal matching a documented pattern "
