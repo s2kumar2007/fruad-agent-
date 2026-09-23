@@ -16,7 +16,8 @@ Usage:
     python run_live.py
 
 Prerequisites:
-    - .env file exists with TG_HOST, TG_USERNAME, TG_PASSWORD, TG_GRAPH, XAI_API_KEY
+    - .env file exists with TG_HOST, TG_SECRET, TG_GRAPH, XAI_API_KEY
+      TG_SECRET is generated from the Savanna console → Database Secrets page.
     - pip install pyTigerGraph python-dotenv requests
 """
 
@@ -30,11 +31,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TG_HOST     = os.environ.get("TG_HOST", "")
-TG_USERNAME = os.environ.get("TG_USERNAME", "tigergraph")
-TG_PASSWORD = os.environ.get("TG_PASSWORD", "")
-TG_GRAPH    = os.environ.get("TG_GRAPH", "FraudGraph")
-XAI_KEY     = os.environ.get("XAI_API_KEY", "")
+TG_HOST   = os.environ.get("TG_HOST", "")
+TG_SECRET = os.environ.get("TG_SECRET", "")
+TG_GRAPH  = os.environ.get("TG_GRAPH", "FraudGraph")
+XAI_KEY   = os.environ.get("XAI_API_KEY", "")
 
 ERRORS = []
 
@@ -49,11 +49,12 @@ def banner(msg):
 # Step 1 – Validate credentials present
 # ---------------------------------------------------------------------------
 banner("Step 1 – Checking credentials")
-missing = [v for v in ("TG_HOST", "TG_USERNAME", "TG_PASSWORD", "TG_GRAPH", "XAI_API_KEY")
+missing = [v for v in ("TG_HOST", "TG_SECRET", "TG_GRAPH", "XAI_API_KEY")
            if not os.environ.get(v)]
 if missing:
     print(f"[ERROR] Missing env vars: {', '.join(missing)}")
     print("  → Copy .env.example to .env and fill in all values, then re-run.")
+    print("  → TG_SECRET comes from Savanna console → your graph → Database Secrets.")
     sys.exit(1)
 print("  All required env vars present.")
 
@@ -66,13 +67,9 @@ import pyTigerGraph as tg
 banner("Step 2-4 – Connecting to TigerGraph and applying GSQL files")
 
 try:
-    conn = tg.TigerGraphConnection(
-        host=TG_HOST,
-        username=TG_USERNAME,
-        password=TG_PASSWORD,
-        graphname=TG_GRAPH,
-    )
-    conn.apiToken = conn.getToken(conn.createSecret())
+    # Use pre-generated DB secret — do NOT call createSecret() here.
+    conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH)
+    conn.apiToken = conn.getToken(TG_SECRET)
     print(f"  Connected to {TG_HOST}  graph={TG_GRAPH}")
 except Exception as e:
     print(f"  [AUTH ERROR] {e}")

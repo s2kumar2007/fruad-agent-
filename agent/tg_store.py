@@ -6,22 +6,22 @@ load_dotenv()
 
 class TigerGraphMCPStore:
     def __init__(self, needed_customers=None):
-        self.host = os.environ.get('TG_HOST')
-        self.username = os.environ.get('TG_USERNAME', 'tigergraph')
-        self.password = os.environ.get('TG_PASSWORD', 'tigergraph')
-        self.graph = os.environ.get('TG_GRAPH', 'FraudGraph')
-        
-        if self.host:
-            self.conn = tg.TigerGraphConnection(
-                host=self.host,
-                graphname=self.graph,
-                username=self.username,
-                password=self.password
-            )
+        self.host   = os.environ.get("TG_HOST")
+        self.secret = os.environ.get("TG_SECRET")
+        self.graph  = os.environ.get("TG_GRAPH", "FraudGraph")
+
+        if self.host and self.secret:
             try:
-                self.conn.apiToken = self.conn.getToken(self.conn.createSecret())
+                # Use a pre-generated DB secret from the Savanna console.
+                # Do NOT call createSecret() — we already have one.
+                self.conn = tg.TigerGraphConnection(
+                    host=self.host,
+                    graphname=self.graph,
+                )
+                self.conn.apiToken = self.conn.getToken(self.secret)
             except Exception as e:
                 print(f"TigerGraph connection error: {e}")
+                self.conn = None
         else:
             self.conn = None
 
