@@ -22,4 +22,4 @@ build/
 .vscode/
 .idea/
 
-fraud-agent/data/transactions.csv
+data/transactions.csv
