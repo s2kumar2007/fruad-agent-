@@ -1,0 +1,76 @@
+USE GRAPH FraudGraph
+
+// 1. All transactions on a card within N hours of a flagged transaction (card testing / burst detection)
+CREATE QUERY card_window(STRING p_card_id, STRING p_txn_id, INT hours) FOR GRAPH FraudGraph {
+  Txn = {Transaction.*};
+  Anchor = SELECT t FROM Txn:t WHERE t.txn_id == p_txn_id;
+  DATETIME anchor_ts = Anchor.ts;
+  Start = SELECT c FROM Card:c WHERE c.card_id == p_card_id;
+  Window = SELECT t FROM Start:c -(MADE)-> Transaction:t
+           WHERE datetime_diff(t.ts, anchor_ts) >= -hours*3600
+             AND datetime_diff(t.ts, anchor_ts) <= hours*3600
+           ORDER BY t.ts ASC;
+  PRINT Window;
+}
+
+// 2. Other cards/customers sharing a device profile with the flagged transaction
+CREATE QUERY device_neighbors(STRING p_txn_id) FOR GRAPH FraudGraph {
+  Anchor = SELECT t FROM Transaction:t WHERE t.txn_id == p_txn_id;
+  Dev = SELECT d FROM Anchor:t -(FROM_DEVICE)-> DeviceProfile:d;
+  OtherTxns = SELECT t2 FROM Dev:d -(reverse_FROM_DEVICE)-> Transaction:t2
+              WHERE t2.txn_id != p_txn_id;
+  OtherCards = SELECT c FROM OtherTxns:t2 -(reverse_MADE)-> Card:c;
+  PRINT Dev, OtherTxns, OtherCards;
+}
+
+// 3. Other cards/customers sharing a billing region cluster in a time window
+CREATE QUERY region_cluster(STRING p_txn_id, INT window_hours) FOR GRAPH FraudGraph {
+  Anchor = SELECT t FROM Transaction:t WHERE t.txn_id == p_txn_id;
+  DATETIME anchor_ts = Anchor.ts;
+  Region = SELECT r FROM Anchor:t -(BILLED_IN)-> BillingRegion:r;
+  OtherTxns = SELECT t2 FROM Region:r -(reverse_BILLED_IN)-> Transaction:t2
+              WHERE t2.txn_id != p_txn_id
+                AND abs(datetime_diff(t2.ts, anchor_ts)) <= window_hours*3600;
+  OtherCards = SELECT c FROM OtherTxns:t2 -(reverse_MADE)-> Card:c;
+  PRINT Region, OtherTxns, OtherCards;
+}
+
+// 4. Full transaction + case history for a card (cardholder's normal baseline)
+CREATE QUERY card_history(STRING p_card_id) FOR GRAPH FraudGraph {
+  Start = SELECT c FROM Card:c WHERE c.card_id == p_card_id;
+  AllTxns = SELECT t FROM Start:c -(MADE)-> Transaction:t ORDER BY t.ts ASC;
+  PastCases = SELECT cc FROM Start:c -(ON_CARD)- ClosedCase:cc;
+  PRINT AllTxns, PastCases;
+}
+
+// 5. Closed-case similarity: cases sharing pattern signature (device/region/product/amount band)
+//    on customers/cards other than the one under investigation — retrieved as memory
+CREATE QUERY similar_closed_cases(STRING p_pattern_hint, STRING p_device_key, STRING p_region_code) FOR GRAPH FraudGraph {
+  Dev = {DeviceProfile.*};
+  Reg = {BillingRegion.*};
+  ViaDevice = SELECT cc FROM Dev:d WHERE d.device_key == p_device_key
+              -(reverse_FROM_DEVICE)-> Transaction -(reverse_INVOLVES)- ClosedCase:cc;
+  ViaRegion = SELECT cc FROM Reg:r WHERE r.region_code == p_region_code
+              -(reverse_BILLED_IN)-> Transaction -(reverse_INVOLVES)- ClosedCase:cc;
+  ViaPattern = SELECT cc FROM ClosedCase:cc WHERE cc.pattern == p_pattern_hint LIMIT 10;
+  PRINT ViaDevice, ViaRegion, ViaPattern;
+}
+
+// 6. Write an agent-generated case back into the graph (case memory persistence)
+CREATE QUERY write_agent_case(STRING p_graph_case_id, STRING p_hhg_case_id, STRING p_status,
+                               STRING p_verdict, DOUBLE p_prob, STRING p_pattern, DOUBLE p_exposure,
+                               STRING p_summary, STRING p_card_id, SET<STRING> p_txn_ids,
+                               SET<STRING> p_connected_card_ids, SET<STRING> p_similar_case_ids) FOR GRAPH FraudGraph {
+  INSERT INTO AgentCase VALUES (p_graph_case_id, p_hhg_case_id, p_status, p_verdict, p_prob,
+                                 p_pattern, p_exposure, p_summary, now());
+  FOREACH tid IN p_txn_ids DO
+    INSERT INTO AGENT_INVOLVES VALUES (p_graph_case_id, tid);
+  END;
+  INSERT INTO AGENT_ON_CARD VALUES (p_graph_case_id, p_card_id);
+  FOREACH cid IN p_connected_card_ids DO
+    INSERT INTO AGENT_CONNECTED_TO VALUES (p_graph_case_id, cid);
+  END;
+  FOREACH scid IN p_similar_case_ids DO
+    INSERT INTO SIMILAR_TO VALUES (p_graph_case_id, scid);
+  END;
+}

@@ -1,0 +1,94 @@
+{
+  "case_id": "HHG-004",
+  "case": {
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.1,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0.0,
+    "evidence": [
+      {
+        "claim": "Flagged charge matches the cardholder's own recurring pattern: same product code and amount (within 8%) recurring roughly monthly, e.g. 3512351",
+        "source": "graph",
+        "ref": "query:card_history(card_id=C08106-K1)",
+        "entity_ids": [
+          "3583227",
+          "3512351"
+        ]
+      },
+      {
+        "claim": "Transaction from a device profile marked 'New' for this account",
+        "source": "graph",
+        "ref": "query:device_neighbors(txn_id=3583227)",
+        "entity_ids": [
+          "3583227"
+        ]
+      },
+      {
+        "claim": "Customer's dispute matched their own recurring charge history and was recognized once shown the pattern",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0011",
+      "CC-0018",
+      "CC-0019"
+    ],
+    "summary": "Case HHG-004: legitimate verdict (p=0.10) on card C08106-K1. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "written_to_graph": true,
+    "graph_case_id": "AC-HHG-004"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 7,
+      "assumed_response": "Customer confirms this matches a recurring charge they recognize once shown the history"
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
+      }
+    ],
+    "final": [
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R7: disputed charge matches cardholder's own recurring pattern"
+      },
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R7: confirm recurring merchant/amount with cardholder"
+      },
+      {
+        "action": "WARN_CUSTOMER",
+        "route": "auto",
+        "reason": "R7: explain the recurring charge; do not block"
+      }
+    ],
+    "what_changed": "Customer's own recurring transaction history explained the disputed charge; case opened for the record but no block, per R7."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Fraud probability reached a decisive threshold (>=0.85 or <=0.15) on independent evidence; further steps would not change the action.",
+  "tool_calls": 8,
+  "tokens": 0,
+  "latency_s": 0.0
+}

@@ -1,0 +1,86 @@
+// ============================================================
+// TigerGraph Schema — HHGoa Agentic Fraud Investigation
+// ============================================================
+CREATE GRAPH FraudGraph()
+
+USE GRAPH FraudGraph
+
+CREATE VERTEX Customer (
+  PRIMARY_ID customer_id STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX Card (
+  PRIMARY_ID card_id STRING,
+  card_network STRING,
+  card_type STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX Transaction (
+  PRIMARY_ID txn_id STRING,
+  amount DOUBLE,
+  ts DATETIME,
+  dt_seconds INT,
+  product_cd STRING,
+  channel STRING,
+  addr1 STRING,
+  addr2 STRING,
+  risk_score DOUBLE,
+  p_email STRING,
+  r_email STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX DeviceProfile (
+  PRIMARY_ID device_key STRING,   // hash of DeviceInfo|id_30|id_31|id_33
+  device_info STRING,
+  os STRING,
+  browser STRING,
+  screen STRING,
+  is_new_flag STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX EmailDomain (
+  PRIMARY_ID domain STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX BillingRegion (
+  PRIMARY_ID region_code STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX ClosedCase (
+  PRIMARY_ID case_id STRING,
+  outcome STRING,
+  pattern STRING,
+  exposure_usd DOUBLE,
+  opened_at DATETIME,
+  closed_at DATETIME,
+  analyst_notes STRING
+) WITH primary_id_as_attribute="true"
+
+// Deliverable: cases written by the agent itself (case memory)
+CREATE VERTEX AgentCase (
+  PRIMARY_ID graph_case_id STRING,
+  hhg_case_id STRING,
+  status STRING,
+  verdict STRING,
+  fraud_probability DOUBLE,
+  pattern STRING,
+  exposure_usd DOUBLE,
+  summary STRING,
+  created_at DATETIME
+) WITH primary_id_as_attribute="true"
+
+CREATE UNDIRECTED EDGE OWNS (FROM Customer, TO Card)
+CREATE DIRECTED EDGE MADE (FROM Card, TO Transaction)
+CREATE DIRECTED EDGE FROM_DEVICE (FROM Transaction, TO DeviceProfile)
+CREATE DIRECTED EDGE PURCHASER_EMAIL (FROM Transaction, TO EmailDomain)
+CREATE DIRECTED EDGE BILLED_IN (FROM Transaction, TO BillingRegion)
+CREATE DIRECTED EDGE NEXT (FROM Transaction, TO Transaction)  // ordered by ts within a card
+
+CREATE UNDIRECTED EDGE INVOLVES (FROM ClosedCase, TO Transaction)
+CREATE UNDIRECTED EDGE ON_CARD (FROM ClosedCase, TO Card)
+CREATE UNDIRECTED EDGE CONNECTED_TO (FROM ClosedCase, TO Card)
+
+CREATE UNDIRECTED EDGE AGENT_INVOLVES (FROM AgentCase, TO Transaction)
+CREATE UNDIRECTED EDGE AGENT_ON_CARD (FROM AgentCase, TO Card)
+CREATE UNDIRECTED EDGE AGENT_CONNECTED_TO (FROM AgentCase, TO Card)
+CREATE UNDIRECTED EDGE SIMILAR_TO (FROM AgentCase, TO ClosedCase)  // case-similarity link (memory retrieval)

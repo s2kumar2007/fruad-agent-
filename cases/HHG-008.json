@@ -1,0 +1,89 @@
+{
+  "case_id": "HHG-008",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.75,
+    "pattern": "undocumented",
+    "pattern_description": "Customer denies a transaction with no signal matching a documented pattern (no shared device, no new region, no burst, no amount/product anomaly). Recorded as undocumented pending analyst review rather than forced into a known category.",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
+        "source": "graph",
+        "ref": "query:card_history(card_id=C13171-K2)",
+        "entity_ids": [
+          "3558054"
+        ]
+      },
+      {
+        "claim": "Customer denied making the flagged transaction",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": [],
+    "summary": "Case HHG-008: fraud verdict (p=0.75) on card C13171-K2. Pattern: undocumented. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "written_to_graph": true,
+    "graph_case_id": "AC-HHG-008"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 7,
+      "assumed_response": "Customer states they did not make this purchase"
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R9: undocumented but coordinated/repeated abuse pattern"
+      },
+      {
+        "action": "ESCALATE_TO_ANALYST",
+        "route": "auto",
+        "reason": "R9: undocumented pattern needs analyst review"
+      }
+    ],
+    "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
+  },
+  "sar": {
+    "file": true,
+    "reason": "R2/R6: confirmed or strongly suspected unauthorized use above the reporting threshold or connected to a shared device",
+    "narrative": "Between the dates below and , card C13171-K2 belonging to customer C13171 was used for 0 transaction(s) totaling $0.00 that the bank has assessed as undocumented. The cardholder was asked to validate the activity and denied making the transaction(s), consistent with unauthorized use rather than a recognized recurring pattern. Affected transaction IDs: . The card has been blocked and scheduled for reissue; connected cards, where identified, have been placed under monitoring pending further review. This activity is reported as suspicious because it is inconsistent with the cardholder's established transaction history and, where applicable, is linked to other compromised cards through a common device profile.",
+    "subjects": [
+      "C13171",
+      "C13171-K2"
+    ],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
+  "tool_calls": 8,
+  "tokens": 0,
+  "latency_s": 0.0
+}

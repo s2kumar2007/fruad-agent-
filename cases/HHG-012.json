@@ -1,0 +1,83 @@
+{
+  "case_id": "HHG-012",
+  "case": {
+    "status": "closed_legitimate",
+    "verdict": "legitimate",
+    "fraud_probability": 0.15,
+    "pattern": "none",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0.0,
+    "evidence": [
+      {
+        "claim": "Card-present purchase in billing region 494.0, no prior history for this card in that region (activity span: 1 day(s))",
+        "source": "graph",
+        "ref": "query:region_cluster(txn_id=3553342,window_hours=72)",
+        "entity_ids": [
+          "3553342"
+        ]
+      },
+      {
+        "claim": "Bank model risk score was 0.55 at trigger time (input signal only, not treated as a verdict)",
+        "source": "graph",
+        "ref": "case_pack.csv",
+        "entity_ids": [
+          "3553342"
+        ]
+      },
+      {
+        "claim": "Customer confirmed making the flagged transaction",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0557",
+      "CC-1828",
+      "CC-4544"
+    ],
+    "summary": "Case HHG-012: legitimate verdict (p=0.15) on card C05876-K2. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "written_to_graph": true,
+    "graph_case_id": "AC-HHG-012"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 7,
+      "assumed_response": "Customer confirms they made this purchase"
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1: fraud probability 0.40 on limited signal, verify before any block"
+      }
+    ],
+    "final": [
+      {
+        "action": "CLOSE_NO_FRAUD",
+        "route": "auto",
+        "reason": "R3: customer confirmed the transaction"
+      }
+    ],
+    "what_changed": "Customer confirmation cleared the alert; case closed as legitimate."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Fraud probability reached a decisive threshold (>=0.85 or <=0.15) on independent evidence; further steps would not change the action.",
+  "tool_calls": 8,
+  "tokens": 0,
+  "latency_s": 0.0
+}

@@ -1,0 +1,82 @@
+{
+  "case_id": "HHG-003",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.75,
+    "pattern": "out_of_region_use",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "3530164"
+    ],
+    "first_suspicious_txn_id": "3530164",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 49.0,
+    "evidence": [
+      {
+        "claim": "Card-present purchase in billing region 330.0, no prior history for this card in that region (activity span: 1 day(s))",
+        "source": "graph",
+        "ref": "query:region_cluster(txn_id=3530164,window_hours=72)",
+        "entity_ids": [
+          "3530164"
+        ]
+      },
+      {
+        "claim": "Customer denied making the flagged transaction",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0006",
+      "CC-0016",
+      "CC-0053"
+    ],
+    "summary": "Case HHG-003: fraud verdict (p=0.75) on card C08623-K2. Pattern: out of region use. Exposure $49.00. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "written_to_graph": true,
+    "graph_case_id": "AC-HHG-003"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 7,
+      "assumed_response": "Customer states they did not make this purchase"
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1: fraud probability 0.40 on limited signal, verify before any block"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      }
+    ],
+    "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
+  "tool_calls": 8,
+  "tokens": 0,
+  "latency_s": 0.0
+}

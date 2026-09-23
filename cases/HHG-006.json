@@ -1,0 +1,87 @@
+{
+  "case_id": "HHG-006",
+  "case": {
+    "status": "closed_fraud",
+    "verdict": "fraud",
+    "fraud_probability": 0.75,
+    "pattern": "card_not_present_new_device",
+    "pattern_description": "",
+    "affected_txn_ids": [
+      "3476682"
+    ],
+    "first_suspicious_txn_id": "3476682",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 482.12,
+    "evidence": [
+      {
+        "claim": "Transaction from a device profile marked 'New' for this account",
+        "source": "graph",
+        "ref": "query:device_neighbors(txn_id=3476682)",
+        "entity_ids": [
+          "3476682"
+        ]
+      },
+      {
+        "claim": "Customer denied making the flagged transaction",
+        "source": "customer",
+        "ref": "evidence_request:1",
+        "entity_ids": []
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-0059",
+      "CC-0249",
+      "CC-0477"
+    ],
+    "summary": "Case HHG-006: fraud verdict (p=0.75) on card C07297-K1. Pattern: card not present new device. Exposure $482.12. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "written_to_graph": true,
+    "graph_case_id": "AC-HHG-006"
+  },
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 7,
+      "assumed_response": "Customer states they did not make this purchase"
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "VERIFY_WITH_CUSTOMER",
+        "route": "auto",
+        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R2"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6: same device profile links this to other card(s)"
+      }
+    ],
+    "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
+  },
+  "sar": {
+    "file": false,
+    "reason": "R2/R9: exposure under $1,000 with no shared-device or coordinated-abuse link; a case is sufficient",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
+  "tool_calls": 8,
+  "tokens": 0,
+  "latency_s": 0.0
+}
