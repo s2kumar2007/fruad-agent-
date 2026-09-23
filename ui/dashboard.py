@@ -6,12 +6,36 @@ so what the demo shows is exactly what was scored -- no separate "demo data".
 """
 import json
 import glob
+import html
+from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 
 st.set_page_config(page_title="Fraud Investigation Agent", layout="wide")
 
 CASES_DIR = "cases"
+UI_DIR = Path(__file__).parent
+VCOL = {"fraud": "var(--fraud)", "legitimate": "var(--ok)", "uncertain": "var(--unc)"}
+
+LOGO = """<svg class="logo" viewBox="0 0 120 120" aria-hidden="true">
+<path class="sh" d="M60 8 L104 24 V58 C104 84 86 102 60 112 C34 102 16 84 16 58 V24 Z"/>
+<path class="lk" d="M60 60 L60 36 M60 60 L38 60 M60 60 L82 58 M60 60 L60 86 M60 36 L82 58 M38 60 L60 86"/>
+<circle class="nd" cx="60" cy="60" r="6"/><circle class="nd" cx="60" cy="36" r="4.5"/><circle class="nd" cx="38" cy="60" r="4.5"/><circle class="nd" cx="60" cy="86" r="4.5"/>
+<circle class="sc" cx="82" cy="58" r="12"/><circle class="rd" cx="82" cy="58" r="6"/>
+</svg>"""
+
+
+def esc(x):
+    # escape HTML, and "$" so Streamlit markdown does not treat it as LaTeX
+    return html.escape(str(x)).replace("$", "&#36;")
+
+
+def load_theme():
+    css = (UI_DIR / "style.css").read_text()
+    st.markdown("<style>" + "\n".join(l for l in css.splitlines() if l.strip()) + "</style>",
+                unsafe_allow_html=True)
+    components.html("<script>" + (UI_DIR / "effects.js").read_text() + "</script>", height=0)
 
 
 @st.cache_data
@@ -36,14 +60,21 @@ def load_cases():
 
 df, raw = load_cases()
 
-st.title("🕵️ Agentic Fraud Investigation — Case Dashboard")
-st.caption("TigerGraph + LangGraph + Grok · HHGoa'26 · 20-case benchmark")
+load_theme()
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Cases investigated", len(df))
-col2.metric("Fraud verdicts", int((df["verdict"] == "fraud").sum()))
-col3.metric("Legitimate verdicts", int((df["verdict"] == "legitimate").sum()))
-col4.metric("SARs filed", int(df["sar_filed"].sum()))
+st.markdown('<div class="brand">' + LOGO + '<div class="title">Agentic fraud investigation</div></div>'
+            '<p class="sub">TigerGraph + LangGraph + Grok · HHGoa\'26 · 20-case benchmark</p>',
+            unsafe_allow_html=True)
+
+stats = [
+    ("Cases investigated", len(df), ""),
+    ("Fraud verdicts", int((df["verdict"] == "fraud").sum()), "f"),
+    ("Legitimate verdicts", int((df["verdict"] == "legitimate").sum()), "l"),
+    ("SARs filed", int(df["sar_filed"].sum()), ""),
+]
+st.markdown('<div class="stats">' + "".join(
+    f'<div class="stat {k}"><b class="cu" data-n="{n}">0</b><span>{label}</span></div>'
+    for label, n, k in stats) + '</div>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -64,59 +95,47 @@ with right:
     if selected:
         d = raw[selected]
         c = d["case"]
-        st.subheader(f"Case {selected}")
-
-        badge_color = {"fraud": "🔴", "legitimate": "🟢", "uncertain": "🟡"}[c["verdict"]]
-        st.markdown(f"### {badge_color} {c['verdict'].upper()} — {c['pattern'].replace('_', ' ')}")
-        st.progress(c["fraud_probability"], text=f"Fraud probability: {c['fraud_probability']:.2f}")
-
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Exposure", f"${c['exposure_usd']:,.2f}")
-        m2.metric("Status", c["status"])
-        m3.metric("Graph case ID", c["graph_case_id"])
-
-        st.markdown("**Summary**")
-        st.info(c["summary"])
-
-        st.markdown("---")
-        st.markdown("#### Investigation timeline")
-
-        st.markdown("**1. Evidence gathered**")
-        for i, ev in enumerate(c["evidence"], 1):
-            with st.expander(f"Evidence {i}: {ev['claim'][:80]}...", expanded=False):
-                st.write(f"**Claim:** {ev['claim']}")
-                st.code(ev["ref"], language="text")
-                st.write(f"**Source:** {ev['source']}")
-                if ev["entity_ids"]:
-                    st.write(f"**Entity IDs:** {', '.join(ev['entity_ids'])}")
-
+        v = c["verdict"]
+        evid = "".join(
+            f'<details><summary>{esc(ev["claim"][:80])}...</summary>'
+            f'{esc(ev["claim"])}<br><code>{esc(ev["ref"])}</code><br>Source: {esc(ev["source"])}'
+            + (f'<br>Entity IDs: {esc(", ".join(ev["entity_ids"]))}' if ev["entity_ids"] else "")
+            + '</details>' for ev in c["evidence"])
         if d["evidence_requests"]:
-            st.markdown("**2. Evidence requested under uncertainty**")
-            for req in d["evidence_requests"]:
-                st.warning(f"Requested `{req['type']}` after step {req['asked_after_step']}. "
-                           f"Assumed response: *{req['assumed_response']}*")
+            asks = "".join(
+                f'<div class="ask">Requested <code>{esc(r["type"])}</code> after step {esc(r["asked_after_step"])}. '
+                f'Assumed response: <i>{esc(r["assumed_response"])}</i></div>' for r in d["evidence_requests"])
         else:
-            st.markdown("**2. Evidence requested under uncertainty**")
-            st.write("None needed — evidence was sufficient after the initial graph pass.")
+            asks = '<div class="none">None needed — evidence was sufficient after the initial graph pass.</div>'
 
-        st.markdown("**3. Next-best-action — before vs. after**")
-        a1, a2 = st.columns(2)
-        with a1:
-            st.caption("Initial")
-            for a in d["next_best_actions"]["initial"]:
-                st.write(f"`{a['action']}` ({a['route']}) — {a['reason']}")
-        with a2:
-            st.caption("Final")
-            for a in d["next_best_actions"]["final"]:
-                st.write(f"`{a['action']}` ({a['route']}) — {a['reason']}")
-        st.caption(f"What changed: {d['next_best_actions']['what_changed']}")
+        def acts(lst):
+            return "".join(f'<div><code>{esc(a["action"])}</code> ({esc(a["route"])}) — {esc(a["reason"])}</div>'
+                           for a in lst)
 
-        st.markdown("**4. Stopping condition**")
-        st.write(d["stop_reason"])
-
-        if c["similar_prior_cases"]:
-            st.markdown("**5. Case memory — similar prior cases retrieved**")
-            st.write(", ".join(c["similar_prior_cases"]))
+        nba = d["next_best_actions"]
+        prior = (f'<div class="step"><div class="h">Case memory — similar prior cases retrieved</div>'
+                 f'{esc(", ".join(c["similar_prior_cases"]))}</div>') if c["similar_prior_cases"] else ""
+        st.markdown(
+            '<div class="panel sw">'
+            f'<div class="head"><div class="ttl">Case {esc(selected)}</div>'
+            f'<span class="badge {"fraud" if v == "fraud" else ""}" style="color:{VCOL[v]}">'
+            f'<span class="dot" style="background:{VCOL[v]}"></span>{esc(v.capitalize())} · {esc(c["pattern"].replace("_", " "))}</span></div>'
+            f'<div class="meter"><i style="width:{c["fraud_probability"] * 100:.0f}%;background:{VCOL[v]}"></i></div>'
+            f'<small style="color:var(--mu)">Fraud probability {c["fraud_probability"]:.2f}</small>'
+            '<div class="kv">'
+            f'<div><span>Exposure</span><b class="cu" data-n="{c["exposure_usd"]}" data-d="2" data-pre="&#36;">&#36;0.00</b></div>'
+            f'<div><span>Status</span><b>{esc(c["status"])}</b></div>'
+            f'<div><span>Graph case ID</span><b>{esc(c["graph_case_id"])}</b></div></div>'
+            f'<div class="sum">{esc(c["summary"])}</div>'
+            '<div class="tl">'
+            f'<div class="step"><div class="h">Evidence gathered</div>{evid}</div>'
+            f'<div class="step"><div class="h">Evidence requested under uncertainty</div>{asks}</div>'
+            '<div class="step"><div class="h">Next-best action, before and after</div>'
+            f'<div class="ba"><div><em>Initial</em>{acts(nba["initial"])}</div><div><em>Final</em>{acts(nba["final"])}</div></div>'
+            f'<div class="chg">What changed: {esc(nba["what_changed"])}</div></div>'
+            f'<div class="step"><div class="h">Stopping condition</div>{esc(d["stop_reason"])}</div>'
+            f'{prior}'
+            '</div></div>', unsafe_allow_html=True)
 
         if d["sar"]["file"]:
             st.markdown("---")
@@ -128,3 +147,4 @@ with right:
 
         with st.expander("Raw JSON (full answer file)"):
             st.json(d)
+            
