@@ -5,10 +5,13 @@ Given a flagged transaction, it pulls the card's graph neighborhood from a live 
 Stack: TigerGraph Savanna + pyTigerGraph for live graph queries, LangGraph for the investigation state machine, Grok (grok-beta) for natural-language case summaries and SAR narratives.
 
 Live benchmark results — 20/20 cases investigated against the live graph:
-→ 5 fraud verdicts (card-not-present, out-of-region, account takeover, undocumented)
-→ 15 legitimate — because not every flagged transaction is fraud
-→ 2 SARs filed where policy requires it
+→ 5 fraud verdicts (card-not-present new device, out-of-region, undocumented)
+→ 6 legitimate cleared — because not every flagged transaction is fraud
+→ 9 uncertain escalated to analyst review with full graph evidence trail
+→ 2 SARs filed where policy requires it (HHG-008, HHG-018)
+→ 20/20 cases written back to TigerGraph as AgentCase vertices (confirmed live)
 → All 20 cases have initial + final next-best-actions recorded, evidence trail complete
+
 
 The thing that mattered most wasn't the LLM — it was getting the graph traversal right. A generic device fingerprint colliding across hundreds of unrelated cards would have quietly wrecked the results if we hadn't caught it by checking cluster sizes and re-reading the evidence claims.
 

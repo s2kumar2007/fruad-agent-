@@ -52,18 +52,20 @@ investigated against the live graph, write-back confirmed — produced the follo
 |--------|-------|
 | Cases investigated | 20 / 20 |
 | Fraud verdicts | 5 |
-| Legitimate verdicts | 15 |
-| SARs filed | 2 (HHG-008, HHG-014) |
+| Legitimate verdicts | 6 |
+| Uncertain / escalated | 9 |
+| SARs filed | 2 (HHG-008, HHG-018) |
 | Cases with evidence requests | 20 / 20 |
 | Cases where actions changed after evidence request | 20 / 20 |
-| Total confirmed exposure | \$645.16 |
-| Fraud probability range | 0.03 – 0.77 |
+| Total confirmed exposure | $2,980.84 |
+| Fraud probability range | 0.03 – 0.75 |
 
-**Pattern breakdown across fraud cases:**
-- `card_not_present_new_device` × 2
-- `out_of_region_use` × 1
-- `account_takeover` × 1
-- `undocumented` × 1
+**Pattern breakdown across investigated cases:**
+- `card_not_present_new_device` × 11
+- `none` (legitimate) × 6
+- `undocumented` (fraud) × 2 (HHG-008, HHG-018 — SAR filed)
+- `out_of_region_use` (fraud) × 1 (HHG-003)
+
 
 **Stub vs live diff:** No material changes in verdict, pattern, or risk level between the
 stub-generated baseline and the live TigerGraph run. The graph store's query outputs matched

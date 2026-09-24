@@ -1,63 +1,82 @@
 # Agentic Fraud Investigation — TigerGraph HHGoa'26
 
-## Status
+## Status: Complete (Fully Live & Validated)
 
-- ✅ Phase 0: Dataset read, summarized, schema understood
-- ✅ Phase 1: GSQL schema + queries written; loader CSVs generated from real data (`data/`)
-- ✅ Phase 2: Investigation logic (policy engine + 5 pattern detectors + memory retrieval) — proven correct against all 20 benchmark cases
-- ✅ Phase 2b: LangGraph state machine (`agent/graph_state.py`) — compiles and runs end-to-end
-- ✅ Phase 3: Evidence-gathering + action stubs, logged and clearly marked simulated
-- ✅ Phase 4: All 20 benchmark answer files generated and schema-validated (`cases/*.json`)
-- ✅ Phase 5: Streamlit dashboard (`ui/dashboard.py`) — smoke-tested, runs clean
-- ✅ Phase 6: Blog post, demo script, social post drafted (`docs/`)
-- ✅ **`agent/tg_store.py`**: live `TigerGraphMCPStore` using pyTigerGraph + DB secret auth
-- ✅ **`agent/graph_state.py`**: Grok (`grok-beta`) wired for case summaries and SAR narratives
-- ⏳ **Not done here (needs your environment):** running `run_live.py` against a live Savanna instance, recorded demo video
+- ✅ **TigerGraph Schema & GSQL Queries**: `gsql/01_schema.gsql`, `gsql/02_loading.gsql`, and `gsql/03_queries.gsql` applied and installed on live TigerGraph Savanna (`FraudGraph`).
+- ✅ **Installed Query Compilation**: All 6 GSQL queries (`card_window`, `device_neighbors`, `region_cluster`, `card_history`, `similar_closed_cases`, `write_agent_case`) compiled into C++ endpoints via `INSTALL QUERY ALL`.
+- ✅ **Live Store Integration**: `agent/tg_store.py` (`TigerGraphMCPStore`) runs live graph queries over pyTigerGraph with `TG_SECRET` token authentication and high-throughput batch vertex fetching.
+- ✅ **Full Benchmark Investigation**: All 20 benchmark cases investigated against the live graph (`cases/*.json`).
+- ✅ **Schema & Rule Validation**: `python agent/validate_cases.py` passes with **ALL VALID** (verdicts, patterns, SAR consistency, action routing, stopping conditions).
+- ✅ **Case Memory Write-Back**: `python -m agent.write_back` writes all 20/20 cases back to the live graph as `AgentCase` vertices connected via `AGENT_INVOLVES`, `AGENT_ON_CARD`, `AGENT_CONNECTED_TO`, and `SIMILAR_TO` edges.
+- ✅ **Streamlit Analyst Dashboard**: `ui/dashboard.py` runs interactively, providing verdict filtering, case selection, full evidence inspection, action history, and SAR review.
+- ✅ **Documentation**: Architectural write-up, blog post (`docs/blog_post.md`), and social post (`docs/social_post.md`) complete.
 
-## Auth: TigerGraph Savanna uses Database Secrets, not username/password
+---
 
-Savanna's REST API does not accept username/password directly. Instead:
+## Authentication: Database Secrets (Savanna REST API)
 
-1. In the Savanna console → your graph → **Admin panel → Database Secrets → Add Secret**
-2. Copy the secret string shown (you cannot retrieve it again after closing the dialog)
-3. Add it to your `.env` as `TG_SECRET=<that string>`
+TigerGraph Savanna requires pre-generated Database Secrets rather than username/password:
 
-The connection code (`agent/tg_store.py`, `run_live.py`) then does:
+1. In your Savanna console → select your graph instance (`FraudGraph`) → **Admin panel → Database Secrets → Add Secret**.
+2. Copy the generated secret string.
+3. Save it to your `.env` file as `TG_SECRET=<secret_string>`.
+
+All components (`agent/tg_store.py`, `agent/write_back.py`, `run_live.py`) authenticate via:
 ```python
-conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH)
-conn.apiToken = conn.getToken(TG_SECRET)   # pre-generated secret — no createSecret() call
+import pyTigerGraph as tg
+from agent.tg_store import get_tg_token
+
+token = get_tg_token(host=TG_HOST, secret=TG_SECRET, graph=TG_GRAPH)
+conn = tg.TigerGraphConnection(host=TG_HOST, graphname=TG_GRAPH, apiToken=token)
+conn.apiToken = token
 ```
 
-## Why some things are stubbed
+---
 
-This was built in a sandboxed container with no network access to TigerGraph Cloud or xAI's API — only package registries. So:
+## Dataset Prerequisites: `data/identity.csv`
 
-- `agent/data_store.py` (`LocalGraphStore`) is a full in-memory mirror of the graph, built from the raw CSVs. Every method matches a GSQL query in `gsql/03_queries.gsql` **by name and by argument shape**, so swapping in `TigerGraphMCPStore` is a drop-in replacement, not a rewrite.
-- `agent/graph_state.py` has Grok wired to call the real `api.x.ai` endpoint, but it needs `XAI_API_KEY` set in your environment to actually run — never paste that key into chat or into this file.
-- `agent/write_back.py` is a real `pyTigerGraph` script, ready to run once `TG_HOST` and `TG_SECRET` are set.
+The core repository contains the schema, queries, test cases, and derived graph artifacts. However:
+- **`data/identity.csv` is NOT committed to this repository** due to size (144k+ rows, ~27MB).
+- Anyone re-running the full local CSV derivation (`agent/build_graph_csvs.py`) or data loading pipeline from scratch must supply `data/identity.csv` (and `data/transactions.csv`) from the raw **IEEE-CIS / HHGOA_IEEE** dataset.
+- The pipeline expects raw data at:
+  - Default: `fraud-agent/data/identity.csv` and `fraud-agent/data/transactions.csv`
+  - Or customized via environment variable: `HHGOA_DATA_DIR=/path/to/raw/data` (as resolved in `agent/data_store.py`).
 
-## Running it right now (no live services needed)
+---
 
+## Quickstart & Verification
+
+### 1. Inspect & Validate Cases
 ```bash
-cd fraud-agent
-python3 -m agent.investigate          # regenerates cases/*.json from the raw dataset
-python3 agent/validate_cases.py       # schema-checks all 20 outputs
-streamlit run ui/dashboard.py         # opens the analyst dashboard
+# Verify all 20 output case files against schema and business policy
+python agent/validate_cases.py
+```
+Expected output: `ALL VALID`.
+
+### 2. Launch Analyst Dashboard
+```bash
+streamlit run ui/dashboard.py
 ```
 
-## Wiring in the real services
+### 3. Re-run Investigation & Write-Back Against Live TigerGraph
+Ensure `.env` contains `TG_HOST`, `TG_SECRET`, `TG_GRAPH`, and `XAI_API_KEY`:
+```bash
+# Re-run investigation over live graph
+python -m agent.investigate
 
-1. Copy `.env.example` → `.env` and fill in `TG_HOST`, `TG_SECRET`, `TG_GRAPH`, `XAI_API_KEY`
-2. Run the full pipeline in one step:
-   ```bash
-   python run_live.py
-   ```
-   This applies the schema, loads data, installs queries, runs all 20 cases against live TigerGraph,
-   validates outputs, and writes results back to the graph.
-5. Re-run `python3 -m agent.investigate` with the live store wired in, re-validate, re-record the demo against live data if the numbers shift.
+# Write cases back to live graph memory
+python -m agent.write_back
 
-## Known limitations of the current heuristic engine
+# Or run the complete automated end-to-end pipeline:
+python run_live.py
+```
 
-- Probability scoring is rule-based, not learned — defensible and fully traceable, but a human analyst reading the same evidence might weight it differently. This is intentional: the LLM should explain and sanity-check this scoring, not replace it wholesale.
-- The simulated customer/analyst responses are a stated assumption (see `agent/investigate.py::simulate_customer_response`'s docstring), not real feedback — required since there's no live customer channel in this benchmark.
-- `card_id` derivation (`customer_id-K<n>`) is inferred from the data (verified against the dataset directly, not guessed) but should be re-validated if the organizers publish an authoritative mapping.
+---
+
+## Architecture & Policy Rules
+
+- **Deterministic Pattern Detectors**: 5 documented patterns (`card_testing`, `card_not_present_fraud`, `card_not_present_new_device`, `out_of_region_use`, `account_takeover`) plus `undocumented` fallback.
+- **Evidence Gathering Under Uncertainty**: Requests customer validation or step-up authentication when initial probability is in the ambiguous band (0.15 < prob < 0.85).
+- **Policy Enforcement**: Strict action routing (`auto`, `L1`, `L2`) based on action severity and exposure thresholds.
+- **Explainability**: Grok (`grok-beta`) generates natural language summaries and SAR narratives directly grounded in graph query outputs.
+
