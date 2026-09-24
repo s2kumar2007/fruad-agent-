@@ -55,10 +55,11 @@ investigated against the live graph, write-back confirmed — produced the follo
 | Legitimate verdicts | 6 |
 | Uncertain / escalated | 9 |
 | SARs filed | 2 (HHG-008, HHG-018) |
-| Cases with evidence requests | 20 / 20 |
-| Cases where actions changed after evidence request | 20 / 20 |
+| Cases with evidence requests | 16 / 20 |
+| Cases where actions changed after evidence request | 16 / 20 |
 | Total confirmed exposure | $2,980.84 |
-| Fraud probability range | 0.03 – 0.75 |
+| Fraud probability range | 0.05 – 0.75 |
+
 
 **Pattern breakdown across investigated cases:**
 - `card_not_present_new_device` × 11
