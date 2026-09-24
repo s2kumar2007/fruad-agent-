@@ -396,15 +396,19 @@ def investigate_case(gs, case_row):
 
     # ------------------ Evidence gathering under uncertainty ------------------
     evidence_requests = []
+    # Only request additional evidence when probability is in the genuinely ambiguous/uncertain band
+    # (0.20 < prob < 0.70) or when customer verification is specifically required.
+    # Clearly legitimate (prob <= 0.20) or clearly confident fraud (prob >= 0.70) skip evidence requests.
     needs_more = (
-        (0.15 < prob < 0.85) or
-        any(a["action"] == "VERIFY_WITH_CUSTOMER" for a in initial_actions)
+        (0.20 < prob < 0.70) and
+        any(a["action"] in ("VERIFY_WITH_CUSTOMER", "STEP_UP_AUTH") for a in initial_actions)
     )
     final_actions = initial_actions
     final_pattern, final_prob = pattern, prob
     what_changed = "nothing"
 
     strong_independent_corroboration = shared_with_closed or bool(card_testing_cleared_large)
+
 
     if needs_more:
         response = simulate_customer_response(trigger_type, strong_independent_corroboration, recurring_hits)
@@ -562,13 +566,17 @@ def recommend_initial(pattern, prob, exposure_now, trigger_type, cleared_large_e
         else:
             actions.append(policy.act("DECLINE_TRANSACTION", "R5: card testing sequence observed, decline before anything clears", exposure_now))
         return actions, "R5"
+    if prob <= 0.20:
+        actions.append(policy.act("CLOSE_NO_FRAUD", f"R3: fraud probability {prob:.2f} is well below threshold; no actionable fraud pattern detected"))
+        return actions, "R3"
     if prob < 0.70:
-        actions.append(policy.act("VERIFY_WITH_CUSTOMER", f"R1: fraud probability {prob:.2f} on limited signal, verify before any block"))
+        actions.append(policy.act("VERIFY_WITH_CUSTOMER", f"R1: fraud probability {prob:.2f} in uncertain band, verify before taking disruptive action"))
         return actions, "R1"
     # prob >= 0.70 on first pass (e.g. strong device+closed-case link)
     actions.append(policy.act("BLOCK_CARD", "Strong first-pass evidence (probability >= 0.70)", exposure_now))
     actions.append(policy.act("CREATE_CASE", "R3a: fraud probability has reached 0.30+"))
     return actions, "strong-signal"
+
 
 
 def recommend_final_deny(pattern, prob, exposure_now, exposure_ids, gs, shared_with_closed):

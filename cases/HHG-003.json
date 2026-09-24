@@ -46,7 +46,7 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.40 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.40 in uncertain band, verify before taking disruptive action"
       }
     ],
     "final": [

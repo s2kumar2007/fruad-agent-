@@ -10,16 +10,21 @@
       "3478561"
     ],
     "first_suspicious_txn_id": "3478561",
-    "connected_card_ids": [],
-    "connected_device_profiles": [],
+    "connected_card_ids": [
+      "C13487-K1"
+    ],
+    "connected_device_profiles": [
+      "? | ? | ? | ?"
+    ],
     "exposure_usd": 74.96,
     "evidence": [
       {
-        "claim": "Transaction from a device profile marked 'New' for this account",
+        "claim": "Transaction from a device profile marked 'New' for this account, also seen on 1 other card(s): C13487-K1",
         "source": "graph",
         "ref": "query:device_neighbors(txn_id=3478561)",
         "entity_ids": [
-          "3478561"
+          "3478561",
+          "C13487-K1"
         ]
       },
       {
@@ -46,7 +51,7 @@
       {
         "action": "VERIFY_WITH_CUSTOMER",
         "route": "auto",
-        "reason": "R1: fraud probability 0.35 on limited signal, verify before any block"
+        "reason": "R1: fraud probability 0.50 in uncertain band, verify before taking disruptive action"
       }
     ],
     "final": [
