@@ -142,8 +142,10 @@ def detect_cnp_fraud(gs, anchor_txn, card_id):
     strength = 0.0
     reasons = []
     # "On its own, one unusual online purchase is ambiguous: verify" -- pattern 2 definition.
+    # Strength 0.20 = borderline, routes to CLOSE_NO_FRAUD (single weak signal).
+    # Only burst activity or unusual product elevates it above the verification threshold.
     if anchor_txn["channel"] == "online" and (unusual_amt or unusual_product):
-        strength = 0.30
+        strength = 0.20
         if unusual_amt:
             reasons.append(f"amount ${amt:.2f} vs card median ${baseline['median']:.2f}")
         if unusual_product:
@@ -151,6 +153,8 @@ def detect_cnp_fraud(gs, anchor_txn, card_id):
         if is_burst and len(burst_online) >= 3:
             strength += 0.15
             reasons.append(f"{len(burst_online)} online txns within 48h")
+        if unusual_amt and unusual_product:
+            strength += 0.10  # two independent signals on the same transaction
     # Fix D: when no baseline history exists, flag large absolute online amounts as low-confidence CNP signal.
     elif anchor_txn["channel"] == "online" and not baseline and amt >= 500.0:
         strength = 0.15
@@ -180,7 +184,10 @@ def detect_out_of_region(gs, anchor_txn, card_id):
         ts_list = sorted(datetime.strptime(t["ts"], "%Y-%m-%d %H:%M:%S") for t in same_card_in_region)
         span_days = (ts_list[-1] - ts_list[0]).days + 1
     # "Several days of purchases in one new region is a trip, not a clone" -- pattern 4 definition.
-    strength = 0.40 if span_days <= 1 else 0.05
+    # A single-day new-region visit is ambiguous (travel, not necessarily fraud).
+    # Strength 0.20 routes to CLOSE_NO_FRAUD without customer contact; only paired with another
+    # signal (e.g. new device) does it cross into the verification band.
+    strength = 0.20 if span_days <= 1 else 0.05
     return True, strength, {"region_cluster": rc, "span_days": span_days}
 
 
