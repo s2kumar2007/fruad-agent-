@@ -5,7 +5,7 @@
     "verdict": "fraud",
     "fraud_probability": 0.75,
     "pattern": "undocumented",
-    "pattern_description": "Customer denies a transaction with no signal matching a documented pattern (no shared device, no new region, no burst, no amount/product anomaly). Recorded as undocumented pending analyst review rather than forced into a known category.",
+    "pattern_description": "Customer reports an unauthorized transaction with no signal matching a documented pattern. Recorded as undocumented pending analyst review.",
     "affected_txn_ids": [
       "3558054"
     ],
@@ -23,30 +23,31 @@
         ]
       },
       {
-        "claim": "Customer denied making the flagged transaction",
+        "claim": "Customer initiated case reporting this transaction as unauthorized",
         "source": "customer",
-        "ref": "evidence_request:1",
-        "entity_ids": []
+        "ref": "trigger:customer_report",
+        "entity_ids": [
+          "3558054"
+        ]
       }
     ],
     "similar_prior_cases": [],
-    "summary": "Case HHG-008: fraud verdict (p=0.75) on card C13171-K2. Pattern: undocumented. Exposure $55.68. Customer validation was requested; recommendation was updated once the assumed response came back.",
+    "summary": "Case HHG-008: fraud verdict (p=0.75) on card C13171-K2. Pattern: undocumented. Exposure $55.68. No additional evidence was required to reach a defensible decision.",
     "written_to_graph": true,
     "graph_case_id": "AC-HHG-008"
   },
-  "evidence_requests": [
-    {
-      "type": "customer_validation",
-      "asked_after_step": 7,
-      "assumed_response": "Customer states they did not make this purchase"
-    }
-  ],
+  "evidence_requests": [],
   "next_best_actions": {
     "initial": [
       {
-        "action": "VERIFY_WITH_CUSTOMER",
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "Strong first-pass evidence (probability >= 0.70)"
+      },
+      {
+        "action": "CREATE_CASE",
         "route": "auto",
-        "reason": "R1: fraud probability 0.35 in uncertain band, verify before taking disruptive action"
+        "reason": "R3a: fraud probability has reached 0.30+"
       }
     ],
     "final": [
@@ -71,7 +72,7 @@
         "reason": "R9: undocumented pattern needs analyst review"
       }
     ],
-    "what_changed": "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
+    "what_changed": "Customer dispute established fraud under Policy R2; card blocked and case created without delay."
   },
   "sar": {
     "file": true,
@@ -87,8 +88,8 @@
       "2016-12-19"
     ]
   },
-  "stop_reason": "Customer validation response settled the verdict; no further evidence would change the recommended action.",
-  "tool_calls": 8,
+  "stop_reason": "Evidence gathered is internally consistent and sufficient for a defensible action at this probability; escalated to a human analyst rather than continuing to loop.",
+  "tool_calls": 7,
   "tokens": 0,
   "latency_s": 0.0
 }

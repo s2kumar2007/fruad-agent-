@@ -379,16 +379,36 @@ def investigate_case(gs, case_row):
             "source": "graph", "ref": "case_pack.csv", "entity_ids": [txn_id],
         })
 
-    # No pattern matched at all -> legitimate-leaning
+    # No pattern matched at all -> legitimate-leaning baseline
     if pattern == "none" and prob == 0.0:
-        prob = 0.10 if trigger_type != "customer_report" else 0.35
+        prob = 0.10
         evidence.append({
             "claim": "No card-testing, new-device, unusual-amount/product, out-of-region, or mixed-channel signal found for this transaction",
             "source": "graph", "ref": f"query:card_history(card_id={card_id})", "entity_ids": [txn_id],
         })
 
-    prob = round(min(prob, 0.97), 2)
+    # If the case was initiated as a proactive customer dispute (not recurring), the cardholder
+    # already explicitly stated this transaction was unauthorized before the investigation began.
+    # In accordance with Policy R2, do not send a redundant verification request back to the customer.
+    is_proactive_customer_dispute = (trigger_type == "customer_report" and not recurring_hits)
 
+    if is_proactive_customer_dispute:
+        prob = max(prob + 0.25, 0.75)
+        if pattern == "none":
+            final_pattern = "undocumented"
+            pattern = "undocumented"
+            exposure_ids.add(txn_id)
+            exposure_now = round(abs(float(anchor["TransactionAmt"])), 2)
+            pattern_description = (
+                "Customer reports an unauthorized transaction with no signal matching a documented pattern. "
+                "Recorded as undocumented pending analyst review."
+            )
+        evidence.append({
+            "claim": "Customer initiated case reporting this transaction as unauthorized",
+            "source": "customer", "ref": "trigger:customer_report", "entity_ids": [txn_id],
+        })
+
+    prob = round(min(prob, 0.97), 2)
 
     # ------------------ Initial recommendation (policy R1-R10) ------------------
     exposure_now = round(sum(abs(float(gs.get_txn(t)["TransactionAmt"])) for t in exposure_ids if gs.get_txn(t)), 2)
@@ -397,10 +417,11 @@ def investigate_case(gs, case_row):
     # ------------------ Evidence gathering under uncertainty ------------------
     evidence_requests = []
     # Only request additional evidence when probability is in the genuinely ambiguous/uncertain band
-    # (0.20 < prob < 0.70) or when customer verification is specifically required.
+    # (0.20 < prob < 0.70) AND not already a proactive customer dispute.
     # Clearly legitimate (prob <= 0.20) or clearly confident fraud (prob >= 0.70) skip evidence requests.
     needs_more = (
         (0.20 < prob < 0.70) and
+        not is_proactive_customer_dispute and
         any(a["action"] in ("VERIFY_WITH_CUSTOMER", "STEP_UP_AUTH") for a in initial_actions)
     )
     final_actions = initial_actions
@@ -409,8 +430,11 @@ def investigate_case(gs, case_row):
 
     strong_independent_corroboration = shared_with_closed or bool(card_testing_cleared_large)
 
-
-    if needs_more:
+    if is_proactive_customer_dispute:
+        final_actions = recommend_final_deny(pattern, prob, exposure_now, exposure_ids, gs, shared_with_closed)
+        final_pattern, final_prob = pattern, prob
+        what_changed = "Customer dispute established fraud under Policy R2; card blocked and case created without delay."
+    elif needs_more:
         response = simulate_customer_response(trigger_type, strong_independent_corroboration, recurring_hits)
         evidence_requests.append({
             "type": "customer_validation",
@@ -422,10 +446,6 @@ def investigate_case(gs, case_row):
             ),
         })
         if response == "deny":
-            # R2 is unconditional (BLOCK_CARD + CREATE_CASE on any denial, not
-            # gated by a probability threshold) -- once we simulate a denial
-            # the case resolves as fraud, so floor the probability so the
-            # verdict logic below doesn't leave it stranded as "uncertain".
             final_prob = round(min(0.97, max(prob + 0.22, 0.75)), 2)
             evidence.append({
                 "claim": "Customer denied making the flagged transaction",
@@ -442,6 +462,7 @@ def investigate_case(gs, case_row):
                 )
             final_actions = recommend_final_deny(final_pattern, final_prob, exposure_now, exposure_ids, gs, shared_with_closed)
             what_changed = "Customer denial, combined with independent graph corroboration, raised fraud probability and moved the recommendation from verification to blocking/case action."
+
         else:
             is_r7 = recurring_hits and trigger_type == "customer_report"
             # Fix E: for confirmed new-device cases without strong corroboration, maintain a floor in the
